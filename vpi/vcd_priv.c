@@ -268,6 +268,7 @@ PLI_INT32 sys_dumpfile_common(const char*title, const char*suffix)
       static const char* name = "$dumpfile";
       vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
       vpiHandle argv = vpi_iterate(vpiArgument, callh);
+	  printf("%s", callh);
       char *path;
 
         /* $dumpfile must be called before $dumpvars starts! */

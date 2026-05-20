@@ -460,11 +460,18 @@ static PLI_INT32 sys_dumpfile_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
       return sys_dumpfile_common("VCD", "vcd");
 }
 
-// static PLI_INT32 sys_testtask_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
-// 	(void) name;
-// 	printf("TEST TEST TEST");
-// 	return 0;
-// }
+static PLI_INT32 sys_enablestream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
+	(void) name;
+	printf("TEST TEST TEST");
+	return 0;
+}
+
+static PLI_INT32 sys_startstream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
+	(void) name;
+	printf("TEST TEST TEST");
+	return 0;
+}
+
 
 static PLI_INT32 sys_dumpflush_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
 {
@@ -927,13 +934,21 @@ void sys_vcd_register(void)
       res = vpi_register_systf(&tf_data);
       vpip_make_systf_system_defined(res);
 
-	  // tf_data.type = vpiSysTask;
-	  // tf_data.tfname = "$testtask";
-	  // tf_data.calltf = sys_testtask_calltf;
-	  // tf_data.compiletf = sys_no_arg_compiletf;
-	  // tf_data.sizetf = 0;
-	  // res = vpi_register_systf(&tf_data);
-	  // vpip_make_systf_system_defined(res);
+	  tf_data.type = vpiSysTask;
+	  tf_data.tfname = "$enablestream";
+	  tf_data.calltf = sys_enablestream_calltf;
+	  tf_data.compiletf = sys_no_arg_compiletf;
+	  tf_data.sizetf = 0;
+	  res = vpi_register_systf(&tf_data);
+	  vpip_make_systf_system_defined(res);
+
+	  tf_data.type = vpiSysTask;
+	  tf_data.tfname = "$startstream";
+	  tf_data.calltf = sys_startstream_calltf;
+	  tf_data.compiletf = sys_no_arg_compiletf;
+	  tf_data.sizetf = 0;
+	  res = vpi_register_systf(&tf_data);
+	  vpip_make_systf_system_defined(res);
 
       tf_data.type      = vpiSysTask;
       tf_data.tfname    = "$dumpflush";
