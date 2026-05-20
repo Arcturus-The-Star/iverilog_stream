@@ -462,13 +462,13 @@ static PLI_INT32 sys_dumpfile_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
 
 static PLI_INT32 sys_enablestream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 	(void) name;
-	printf("TEST TEST TEST");
+	printf("Called $enablestream\n");
 	return 0;
 }
 
 static PLI_INT32 sys_startstream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 	(void) name;
-	printf("TEST TEST TEST");
+	printf("Called $startstream\n");
 	return 0;
 }
 
