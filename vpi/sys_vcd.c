@@ -17,6 +17,7 @@
  *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "_pli_types.h"
 # include "sys_priv.h"
 # include "vcd_priv.h"
 
@@ -30,6 +31,7 @@
 # include  <assert.h>
 # include  <time.h>
 # include  "ivl_alloc.h"
+#include "vpi_user.h"
 
 static FILE *dump_file = NULL;
 static int   dump_no_date = 0;
@@ -407,8 +409,7 @@ static void open_dumpfile(vpiHandle callh)
 {
       char* use_dump_path = vcd_get_dump_path("vcd");
 
-      // dump_file = fopen(use_dump_path, "w");
-	  dump_file = stdout; /*_path, "w"*/
+      dump_file = fopen(use_dump_path, "w");
 
       if (dump_file == 0) {
 	    vpi_printf("VCD Error: %s:%d: ", vpi_get_str(vpiFile, callh),
@@ -458,6 +459,12 @@ static PLI_INT32 sys_dumpfile_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
       (void) name;
       return sys_dumpfile_common("VCD", "vcd");
 }
+
+// static PLI_INT32 sys_testtask_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
+// 	(void) name;
+// 	printf("TEST TEST TEST");
+// 	return 0;
+// }
 
 static PLI_INT32 sys_dumpflush_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
 {
@@ -919,6 +926,14 @@ void sys_vcd_register(void)
       tf_data.user_data = "$dumpfile";
       res = vpi_register_systf(&tf_data);
       vpip_make_systf_system_defined(res);
+
+	  // tf_data.type = vpiSysTask;
+	  // tf_data.tfname = "$testtask";
+	  // tf_data.calltf = sys_testtask_calltf;
+	  // tf_data.compiletf = sys_no_arg_compiletf;
+	  // tf_data.sizetf = 0;
+	  // res = vpi_register_systf(&tf_data);
+	  // vpip_make_systf_system_defined(res);
 
       tf_data.type      = vpiSysTask;
       tf_data.tfname    = "$dumpflush";
