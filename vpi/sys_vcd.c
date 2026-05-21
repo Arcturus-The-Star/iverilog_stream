@@ -20,6 +20,7 @@
 #include "_pli_types.h"
 # include "sys_priv.h"
 # include "vcd_priv.h"
+# include "sys_stream.h"
 
 /*
  * This file contains the implementations of the VCD related functions.
@@ -470,6 +471,7 @@ static PLI_INT32 sys_enablestream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 	vpiHandle handle = vpi_scan(argv);
 	vpi_get_value(handle, &val);
 	stream_server = val.value.str;
+	test_func();
 	return 0;
 }
 
