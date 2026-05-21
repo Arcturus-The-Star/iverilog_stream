@@ -44,6 +44,7 @@ extern void sys_vcdoff_register(void);
 extern void sys_special_register(void);
 extern void table_model_register(void);
 extern void vams_simparam_register(void);
+extern void sys_stream_register(void);
 
 #ifdef HAVE_LIBZ
 #ifdef HAVE_LIBBZ2
@@ -219,6 +220,7 @@ void (*vlog_startup_routines[])(void) = {
       sys_special_register,
       table_model_register,
       vams_simparam_register,
+	  sys_stream_register,
       0
 };
 
