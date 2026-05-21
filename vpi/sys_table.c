@@ -198,6 +198,7 @@ static void sys_lxt_or_vcd_register(void)
       }
 }
 
+
 void (*vlog_startup_routines[])(void) = {
       sys_convert_register,
       sys_countdrivers_register,
@@ -220,3 +221,5 @@ void (*vlog_startup_routines[])(void) = {
       vams_simparam_register,
       0
 };
+
+
