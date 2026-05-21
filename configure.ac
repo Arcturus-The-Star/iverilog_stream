@@ -197,6 +197,15 @@ AC_CHECK_LIB(pthread, pthread_create)
 AC_CHECK_LIB(z, gzwrite)
 AC_CHECK_LIB(z, gzwrite, HAVE_LIBZ=yes, HAVE_LIBZ=no)
 AC_SUBST(HAVE_LIBZ)
+AC_CHECK_LIB([rdkafka], [rd_kafka_conf_new], [], [
+  AC_MSG_ERROR([librdkafka not found. Install librdkafka-dev or build from source.])
+])
+
+AC_CHECK_HEADER([librdkafka/rdkafka.h], [], [
+  AC_MSG_ERROR([librdkafka headers not found.])
+])
+
+
 if test "$WIN32" = "yes"; then
 AC_CHECK_LIB(bz2, main)
 AC_CHECK_LIB(bz2, main, HAVE_LIBBZ2=yes, HAVE_LIBBZ2=no)
