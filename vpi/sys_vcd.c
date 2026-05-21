@@ -35,6 +35,7 @@
 
 static FILE *dump_file = NULL;
 static int   dump_no_date = 0;
+static char* stream_server = NULL;
 
 static struct t_vpi_time zero_delay = { vpiSimTime, 0, 0, 0.0 };
 
@@ -462,7 +463,13 @@ static PLI_INT32 sys_dumpfile_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
 
 static PLI_INT32 sys_enablestream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 	(void) name;
-	printf("Called $enablestream\n");
+	s_vpi_value val;
+	vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
+    vpiHandle argv = vpi_iterate(vpiArgument, callh);
+	val.format = vpiStringVal;
+	vpiHandle handle = vpi_scan(argv);
+	vpi_get_value(handle, &val);
+	stream_server = val.value.str;
 	return 0;
 }
 
@@ -937,8 +944,9 @@ void sys_vcd_register(void)
 	  tf_data.type = vpiSysTask;
 	  tf_data.tfname = "$enablestream";
 	  tf_data.calltf = sys_enablestream_calltf;
-	  tf_data.compiletf = sys_no_arg_compiletf;
+	  tf_data.compiletf = sys_one_string_arg_compiletf;
 	  tf_data.sizetf = 0;
+	  tf_data.user_data = "$enablestream";
 	  res = vpi_register_systf(&tf_data);
 	  vpip_make_systf_system_defined(res);
 
@@ -947,6 +955,7 @@ void sys_vcd_register(void)
 	  tf_data.calltf = sys_startstream_calltf;
 	  tf_data.compiletf = sys_no_arg_compiletf;
 	  tf_data.sizetf = 0;
+	  tf_data.user_data = "$startstream";
 	  res = vpi_register_systf(&tf_data);
 	  vpip_make_systf_system_defined(res);
 
