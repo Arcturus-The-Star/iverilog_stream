@@ -155,8 +155,8 @@ EXTERN int dumpvars_status;
 	    vpiHandle item; \
 	    vpiHandle cb;\
 	    struct t_vpi_time time; \
-	    struct vcd_info *next; \
-	    struct vcd_info *dmp_next; \
+	    struct type_name *next; \
+	    struct type_name *dmp_next; \
 	    int scheduled; \
 	    ident_type ident; \
       }

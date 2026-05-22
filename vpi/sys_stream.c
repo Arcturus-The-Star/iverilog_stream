@@ -14,6 +14,10 @@
 # include <assert.h>
 # include <string.h>
 
+DECLARE_VCD_INFO(stream_info, const char*);
+static struct stream_info *stream_const_list = NULL;
+static struct stream_info *stream_list = NULL;
+static struct stream_info *stream_dmp_list = NULL;
 
 static char* stream_server = NULL;
 static rd_kafka_t* producer;
@@ -40,6 +44,23 @@ static const char*units_names[] = {
 struct vcd_names_list_s stream_tab = { 0, 0, 0, 0 };
 struct vcd_names_list_s stream_var = { 0, 0, 0, 0 };
 
+static char strid[8] = "!";
+
+static void gen_new_strid(void) {
+	static unsigned value = 0;
+	unsigned v = value++;
+	unsigned int i;
+
+	for (i=0; i < sizeof(strid)-1; i++) {
+		strid[i] = (char)((v%94) + 33);
+		v /= 94;
+		if (!v) {
+			strid[i + 1] = '\0';
+			return;
+		}
+	}
+	assert(0);
+}
 
 typedef struct {
     char  *data;
@@ -101,7 +122,7 @@ int strbuf_append_linef(StrBuf *buf, const char *fmt, ...) {
         return -1;
     }
 
-    size_t needed = buf->len + (size_t)needed_chars + 2;
+    size_t needed = buf->len + (size_t)needed_chars + 1;
     if (strbuf_grow(buf, needed) < 0) {
         va_end(args_copy);
         return -1;
@@ -111,7 +132,6 @@ int strbuf_append_linef(StrBuf *buf, const char *fmt, ...) {
     va_end(args_copy);
 
     buf->len += (size_t)needed_chars;
-    buf->data[buf->len++] = '\n';
     buf->data[buf->len]   = '\0';
     return 0;
 }
@@ -249,6 +269,228 @@ static void start_producer(vpiHandle callh) {
 	vpi_printf("Stream info: started producer listening at %s\n", stream_server);
 }
 
+static PLI_INT32 variable_cb(p_cb_data cause) {
+	return 0;
+}
+
+static void scan_item(unsigned depth, vpiHandle item, int skip) {
+
+	static int dumpable_types[] = {
+		/* Value */
+		vpiNamedEvent,
+		vpiNet,
+		vpiParameter,
+		vpiReg,
+		vpiVariables,
+		/* Scope */
+		vpiFunction,
+		vpiGenScope,
+		vpiModule,
+		vpiNamedBegin,
+		vpiNamedFork,
+		vpiTask,
+		-1
+    };
+
+	struct t_cb_data cb;
+	struct stream_info* info;
+
+	const char *type;
+	const char *name;
+	const char *fullname;
+	const char *prefix;
+	const char *ident;
+	int64_t nexus_id;
+	unsigned size;
+	PLI_INT32 item_type;
+
+	item_type = vpi_get(vpiType, item);
+	switch (item_type) {
+	  case vpiNamedEvent: type = "event"; break;
+	  case vpiIntVar:
+	  case vpiIntegerVar: type = "integer"; break;
+	    /* VCD doesn't support real parameters, so lie. */
+	  case vpiParameter:
+	    switch (vpi_get(vpiConstType, item)) {
+		case vpiRealConst: type = "real"; break;
+		default: type = "parameter"; break;
+	    }
+	    break;
+	    /* Icarus converts realtime to real. */
+	  case vpiRealVar:    type = "real"; break;
+	  case vpiMemoryWord:
+	  case vpiBitVar:
+	  case vpiByteVar:
+	  case vpiShortIntVar:
+	  case vpiLongIntVar:
+	  case vpiReg:        type = "reg"; break;
+	    /* Icarus converts a time to a plain register. */
+	  case vpiTimeVar:    type = "time"; break;
+	  case vpiNet:
+	    switch (vpi_get(vpiNetType, item)) {
+		case vpiWand:    type = "wand"; break;
+		case vpiWor:     type = "wor"; break;
+		case vpiTri:     type = "tri"; break;
+		case vpiTri0:    type = "tri0"; break;
+		case vpiTri1:    type = "tri1"; break;
+		case vpiTriReg:  type = "trireg"; break;
+		case vpiTriAnd:  type = "triand"; break;
+		case vpiTriOr:   type = "trior"; break;
+		case vpiSupply1: type = "supply1"; break;
+		case vpiSupply0: type = "supply0"; break;
+		default:         type = "wire"; break;
+	    }
+	    break;
+
+	  case vpiNamedBegin: type = "begin"; break;
+	  case vpiGenScope:   type = "begin"; break;
+	  case vpiNamedFork:  type = "fork"; break;
+	  case vpiFunction:   type = "function"; break;
+	  case vpiModule:     type = "module"; break;
+	  case vpiPackage:    type = "package"; break;
+	  case vpiTask:       type = "task"; break;
+
+	  default:
+	    vpi_printf("Streaming warning: $startstream: Unsupported argument "
+	               "type (%s).\n", vpi_get_str(vpiType, item));
+	    return;
+      }
+	/* Do some special processing/checking on array words. Dumping array words is an Icarus extension. */
+	if (item_type == vpiMemoryWord) {
+		if (vpi_get(vpiConstantSelect, item) == 0) {
+			vpiHandle array = vpi_handle(vpiParent, item);
+			PLI_INT32 idx = vpi_get(vpiIndex, item);
+			item = vpi_handle_by_index(array, idx);
+		}
+		if (vpi_get(vpiType, item) == vpiMemoryWord && vpi_handle_by_name(vpi_get_str(vpiFullName, item), 0)) {
+			vpi_printf("Stream warning: array word %s will conflict with an escaped identifier", vpi_get_str(vpiFullName, item));
+		}
+	}
+
+	fullname = vpi_get_str(vpiFullName, item);
+	switch (item_type) {
+	case vpiNamedEvent:
+	case vpiIntegerVar:
+	case vpiBitVar:
+	case vpiByteVar:
+	case vpiShortIntVar:
+	case vpiIntVar:
+	case vpiLongIntVar:
+	case vpiRealVar:
+	case vpiMemoryWord:
+	case vpiReg:
+	case vpiTimeVar:
+	case vpiNet:
+		if (skip || vpi_get(vpiAutomatic, item)) return;
+		if (vcd_names_search(&stream_var, fullname)) return;
+		
+		name = vpi_get_str(vpiName, item);
+		prefix = is_escaped_id(name) ? "\\" : "";
+		nexus_id = vpi_get64(_vpiNexusId, item);
+		
+		ident = 0;
+		if (nexus_id) ident = find_nexus_ident(nexus_id);
+		if (!ident) {
+			ident = strdup(strid);
+			gen_new_strid();
+
+			if (nexus_id) set_nexus_ident(nexus_id, ident);
+
+			info = malloc(sizeof(*info));
+			
+			info->time.type = vpiSimTime;
+			info->item = item;
+			info->ident = ident;
+			info->scheduled = 0;
+
+			cb.time = &info->time;
+			cb.user_data = (char*)info;
+			cb.value = NULL;
+			cb.obj = item;
+			cb.reason = cbValueChange;
+			cb.cb_rtn = variable_cb;
+			
+			info->dmp_next = 0;
+			info->next = stream_list;
+			stream_list = info;
+			
+			info->cb = vpi_register_cb(&cb);
+		}
+
+		
+		if (item_type == vpiNamedEvent) {
+			size = 1;
+		} else {
+			size = vpi_get(vpiSize, item);
+		}
+		strbuf_append_linef(&message, "$var %s %u %s %s%s", type, size, ident, prefix, name);
+		if (size > 1 || vpi_get(vpiLeftRange, item) != 0) {
+			strbuf_append_linef(&message, " [%i:%i]",
+					(int)vpi_get(vpiLeftRange, item),
+					(int)vpi_get(vpiRightRange, item));
+		}
+		strbuf_append_linef(&message, " $end\n");
+		break;
+	
+	case vpiParameter:
+		if (skip) return;
+		
+		size = vpi_get(vpiSize, item);
+		name = vpi_get_str(vpiName, item);
+		prefix = is_escaped_id(name) ? "\\" : "";
+		ident = strdup(strid);
+		gen_new_strid();
+		
+		info = malloc(sizeof(*info));
+		info->item = item;
+		info->ident = ident;
+		info->scheduled = 0;
+		info->dmp_next = 0;
+		info->next = stream_const_list;
+		stream_const_list = info;
+		info->cb = NULL;
+
+		strbuf_append_linef(&message, "$var %s %u %s %s%s $end\n", type, size, ident, prefix, name);
+		break;
+	case vpiModule:
+	case vpiGenScope:
+	case vpiFunction:
+	case vpiTask:
+	case vpiNamedBegin:
+	case vpiNamedFork:
+		if (depth > 0) {
+			int i;
+			int nskip = (vcd_names_search(&stream_tab, fullname) != 0);
+			
+			if (nskip) {
+				vpi_printf("Stream warning: ignoring signals in previously scanned scope %s. \n", fullname);
+			} else {
+				vcd_names_add(&stream_tab, fullname);
+			}
+			name = vpi_get_str(vpiName, item);
+			strbuf_append_linef(&message, "$scope %s %s $end\n", type, name);
+			
+			for (i=0; dumpable_types[i]>0; i++) {
+				vpiHandle hand;
+				vpiHandle argv = vpi_iterate(dumpable_types[i], item);
+				while (argv && (hand = vpi_scan(argv))) {
+					scan_item(depth-1, hand, nskip);
+				}
+			}
+			strbuf_append_linef(&message, "$upscope $end\n");
+		}
+		break;
+	case vpiPackage:
+		if (vcd_instance_contains_dumpable_items(dumpable_types, item)) {
+			vpi_printf("Stream warning: $startstream: Package (%s) is not dumpable with stream.\n", vpi_get_str(vpiFullName, item));
+		}
+		break;
+
+	}
+
+	return;
+}
+
 static int draw_scope(vpiHandle item, vpiHandle callh) {
 	int depth;
 	const char *name;
@@ -369,6 +611,19 @@ static PLI_INT32 sys_startstream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 		}
 
 		dep = draw_scope(item, callh);
+
+		scan_item(depth, item, 0);
+		vcd_names_sort(&stream_tab);
+		
+		while (dep--) strbuf_append_linef(&message, "$upscope $end\n");
+		
+		if (add_var) {
+			vcd_names_add(&stream_var, vpi_get_str(vpiFullName, item));
+			vcd_names_sort(&stream_var);
+		}
+
+		send_message(message.data);
+		strbuf_free(&message);
 	}
 
 	return 0;
