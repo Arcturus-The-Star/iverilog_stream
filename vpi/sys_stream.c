@@ -27,6 +27,7 @@ static int stream_status = 0;
 static PLI_UINT64 startstream_time;
 static struct t_vpi_time zero_delay = { vpiSimTime, 0, 0, 0.0 };
 static PLI_UINT64 stream_cur_time;
+static int dump_no_date = 0;
 
 static const char*units_names[] = {
       "s",
@@ -344,8 +345,8 @@ static void start_producer(vpiHandle callh) {
 			prec -= 1;
 		}
 		strbuf_init(&message, 50);
-		strbuf_append_linef(&message, "$date\n\t%s\n$end\n", asctime(localtime(&walltime)));
-		strbuf_append_linef(&message, "$version\nIcarus Verilog\n$end\n$timescale\n\t%u%s\n$end\n", scale, units_names[udx]);
+		if (!dump_no_date) strbuf_append_linef(&message, "$date\n\t%s$end\n", asctime(localtime(&walltime)));
+		strbuf_append_linef(&message, "$version\n\tIcarus Verilog\n$end\n$timescale\n\t%u%s\n$end\n", scale, units_names[udx]);
 		send_message(message.data);
 		strbuf_free(&message);
 	}
@@ -752,10 +753,27 @@ static PLI_INT32 sys_startstream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 	return 0;
 }
 
+static PLI_INT32 sys_streamflush_calltf(ICARUS_VPI_CONST PLI_BYTE8 *name) {
+	(void)name;
+	if (producer) {
+		rd_kafka_flush(producer, 1000 * 100);
+	}
+	return 0;
+}
+
 
 void sys_stream_register(void) {
 	s_vpi_systf_data tf_data;
     vpiHandle res;
+	int idx;
+	struct t_vpi_vlog_info vlog_info;
+	
+	vpi_get_vlog_info(&vlog_info);
+	for (idx = 0; idx < vlog_info.argc; idx += 1) {
+		if (strcmp(vlog_info.argv[idx],"-no-date") == 0) {
+        	dump_no_date = 1;
+        }
+	}
 
 	tf_data.type = vpiSysTask;
 	tf_data.tfname = "$enablestream";
@@ -772,6 +790,15 @@ void sys_stream_register(void) {
 	tf_data.compiletf = sys_dumpvars_compiletf;
 	tf_data.sizetf = 0;
 	tf_data.user_data = "$startstream";
+	res = vpi_register_systf(&tf_data);
+	vpip_make_systf_system_defined(res);
+
+	tf_data.type = vpiSysTask;
+	tf_data.tfname = "$streamflush";
+	tf_data.calltf = sys_streamflush_calltf;
+	tf_data.compiletf = sys_no_arg_compiletf;
+	tf_data.sizetf = 0;
+	tf_data.user_data = "$streamflush";
 	res = vpi_register_systf(&tf_data);
 	vpip_make_systf_system_defined(res);
 
