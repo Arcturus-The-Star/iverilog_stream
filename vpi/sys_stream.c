@@ -62,6 +62,41 @@ static void gen_new_strid(void) {
 	assert(0);
 }
 
+static void send_message(char* msg) {
+	char* key = "IV_STREAM_TEST";
+	int key_len = strlen(key);
+	int msg_len = strlen(msg);
+	rd_kafka_resp_err_t err;
+	err = rd_kafka_producev(producer,
+		RD_KAFKA_V_TOPIC(topic),
+		RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
+		RD_KAFKA_V_KEY((void*)key, key_len),
+		RD_KAFKA_V_VALUE((void*)msg, msg_len),
+		RD_KAFKA_V_OPAQUE(NULL),
+		RD_KAFKA_V_END
+	);
+	if (err) {
+		vpi_printf("Failed to produce to topic %s: %s", topic, rd_kafka_err2str(err));
+	}
+
+	rd_kafka_poll(producer, 0);
+}
+
+static char* truncate_bitvec(char *s) {
+	char r;
+
+    r=*s;
+    if(r=='1') return s;
+    else s += 1;
+
+    for(;;s++) {
+	  char l;
+	  l=r; r=*s;
+	  if(!r) return (s-1);
+	  if(l!=r) return(((l=='0')&&(r=='1'))?s:s-1);
+    }
+}
+
 typedef struct {
     char  *data;
     size_t len;
@@ -140,23 +175,64 @@ static PLI_INT32 stream_finish_cb(p_cb_data cause) {
 	if (finish_status != 0) return 0;
 	
 	finish_status = 1;
-	
+
 	// Stop the producer
 	rd_kafka_flush(producer, 10 * 1000);
 	rd_kafka_destroy(producer);
+
+	// Free any dangling message
+	strbuf_free(&message);
 	
 	return 0;
 }
 
-static PLI_INT32 startstream_cb(p_cb_data cause) {
+static void show_this_item(struct stream_info *info) {
+	s_vpi_value value;
+	PLI_INT32 type = vpi_get(vpiType, info->item);
 	
+	if (type == vpiRealVar) {
+		value.format = vpiRealVal;
+		vpi_get_value(info->item, &value);
+		strbuf_append_linef(&message, "r%.16g %s\n", value.value.real, info->ident);
+	} else if (type == vpiNamedEvent) {
+		strbuf_append_linef(&message, "1%s\n", info->ident);
+	} else if (type == vpiParameter && vpi_get(vpiConstType, info->item) == vpiRealConst) {
+		value.format = vpiRealVal;
+		vpi_get_value(info->item, &value);
+		strbuf_append_linef(&message, "r%.16g %s\n", value.value.real, info->ident);
+	} else if (vpi_get(vpiSize, info->item) == 1) {
+		value.format = vpiBinStrVal;
+		vpi_get_value(info->item, &value);
+		strbuf_append_linef(&message, "%s%s\n", value.value.str, info->ident);
+	} else {
+		value.format = vpiBinStrVal;
+		vpi_get_value(info->item, &value);
+		strbuf_append_linef(&message, "b%s %s\n", truncate_bitvec(value.value.str), info->ident);
+	}
 
+}
+
+static PLI_INT32 startstream_cb(p_cb_data cause) {
 	if (stream_status != 1) return 0;
 
 	stream_status = 2;
 
 	startstream_time = timerec_to_time64(cause->time);
 	stream_time = startstream_time;
+	
+	strbuf_append_linef(&message, "$enddefinitions $end\n");
+
+	strbuf_append_linef(&message, "$comment Show the parameter values. $end\n");
+	strbuf_append_linef(&message, "$dumpall\n");
+	ITERATE_VCD_INFO(stream_const_list, stream_info, next, show_this_item);
+	strbuf_append_linef(&message, "$end\n");
+	strbuf_append_linef(&message, "#%" PLI_UINT64_FMT "\n", startstream_time);
+	strbuf_append_linef(&message, "$dumpvars\n");
+	ITERATE_VCD_INFO(stream_list, stream_info, next, show_this_item);
+	strbuf_append_linef(&message, "$end");
+	
+	send_message(message.data);
+	strbuf_free(&message);
 
 	return 0;
 }
@@ -206,25 +282,7 @@ static void set_config(vpiHandle callh, rd_kafka_conf_t *conf, char *key, char *
 	}
 }
 
-static void send_message(char* msg) {
-	char* key = "IV_STREAM_TEST";
-	int key_len = strlen(key);
-	int msg_len = strlen(msg);
-	rd_kafka_resp_err_t err;
-	err = rd_kafka_producev(producer,
-		RD_KAFKA_V_TOPIC(topic),
-		RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
-		RD_KAFKA_V_KEY((void*)key, key_len),
-		RD_KAFKA_V_VALUE((void*)msg, msg_len),
-		RD_KAFKA_V_OPAQUE(NULL),
-		RD_KAFKA_V_END
-	);
-	if (err) {
-		vpi_printf("Failed to produce to topic %s: %s", topic, rd_kafka_err2str(err));
-	}
 
-	rd_kafka_poll(producer, 0);
-}
 
 static void start_producer(vpiHandle callh) {
 	char errstr[512];
@@ -269,7 +327,7 @@ static void start_producer(vpiHandle callh) {
 	vpi_printf("Stream info: started producer listening at %s\n", stream_server);
 }
 
-static PLI_INT32 variable_cb(p_cb_data cause) {
+static PLI_INT32 variable_cb_1(p_cb_data cause) {
 	return 0;
 }
 
@@ -408,7 +466,7 @@ static void scan_item(unsigned depth, vpiHandle item, int skip) {
 			cb.value = NULL;
 			cb.obj = item;
 			cb.reason = cbValueChange;
-			cb.cb_rtn = variable_cb;
+			cb.cb_rtn = variable_cb_1;
 			
 			info->dmp_next = 0;
 			info->next = stream_list;
@@ -622,9 +680,10 @@ static PLI_INT32 sys_startstream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 			vcd_names_sort(&stream_var);
 		}
 
-		send_message(message.data);
-		strbuf_free(&message);
+
 	}
+	// Prevents duplication detection from interfering with dumping
+	nexus_ident_delete();
 
 	return 0;
 }
