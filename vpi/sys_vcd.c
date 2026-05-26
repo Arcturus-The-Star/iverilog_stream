@@ -329,6 +329,7 @@ static PLI_INT32 sys_dumpoff_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
 
       dump_is_off = 1;
 
+
       if (dump_file == 0) return 0;
       if (dump_header_pending()) return 0;
 
@@ -881,6 +882,8 @@ static PLI_INT32 sys_dumpvars_calltf(ICARUS_VPI_CONST PLI_BYTE8*name)
 		  vcd_names_sort(&vcd_var);
 	    }
       }
+	  // Prevents duplicate detection from interfering with streaming
+	  nexus_ident_delete();
 
       return 0;
 }
