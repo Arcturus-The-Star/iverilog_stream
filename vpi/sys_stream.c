@@ -748,7 +748,7 @@ static PLI_INT32 sys_startstream_calltf(ICARUS_VPI_CONST PLI_BYTE8*name) {
 
 	}
 	// Prevents duplication detection from interfering with dumping
-	nexus_ident_delete();
+	// nexus_ident_delete();
 
 	return 0;
 }
