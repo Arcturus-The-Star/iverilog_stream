@@ -26,7 +26,7 @@ static int finish_status = 0;
 static int stream_status = 0;
 static PLI_UINT64 startstream_time;
 static struct t_vpi_time zero_delay = { vpiSimTime, 0, 0, 0.0 };
-static PLI_UINT64 stream_time;
+static PLI_UINT64 stream_cur_time;
 
 static const char*units_names[] = {
       "s",
@@ -46,22 +46,23 @@ struct vcd_names_list_s stream_var = { 0, 0, 0, 0 };
 
 static char strid[8] = "!";
 
-static void gen_new_strid(void) {
-	static unsigned value = 0;
-	unsigned v = value++;
-	unsigned int i;
+static void gen_new_strid(void)
+{
+      static unsigned value = 0;
+      unsigned v = ++value;
+      unsigned int i;
 
-	for (i=0; i < sizeof(strid)-1; i++) {
-		strid[i] = (char)((v%94) + 33);
-		v /= 94;
-		if (!v) {
-			strid[i + 1] = '\0';
-			return;
-		}
-	}
-	assert(0);
+      for (i=0; i < sizeof(strid)-1; i++) {
+           strid[i] = (char)((v%94)+33); /* for range 33..126 */
+           v /= 94;
+           if(!v) {
+                 strid[i+1] = '\0';
+                 return;
+           }
+      }
+	// This should never happen since 94**7 is a lot if identifiers!
+      assert(0);
 }
-
 static void send_message(char* msg) {
 	char* key = "IV_STREAM_TEST";
 	int key_len = strlen(key);
@@ -172,9 +173,18 @@ int strbuf_append_linef(StrBuf *buf, const char *fmt, ...) {
 }
 
 static PLI_INT32 stream_finish_cb(p_cb_data cause) {
+	struct stream_info *cur, *next;
+
 	if (finish_status != 0) return 0;
 	
 	finish_status = 1;
+
+	startstream_time = timerec_to_time64(cause->time);
+
+	if (startstream_time != stream_cur_time) {
+		strbuf_append_linef(&message, "#%" PLI_UINT64_FMT "\n", startstream_time);
+		send_message(message.data);
+	}
 
 	// Stop the producer
 	rd_kafka_flush(producer, 10 * 1000);
@@ -182,6 +192,23 @@ static PLI_INT32 stream_finish_cb(p_cb_data cause) {
 
 	// Free any dangling message
 	strbuf_free(&message);
+
+	for (cur = stream_list; cur; cur = next) {
+		next = cur->next;
+		free((char*)cur->ident);
+		free(cur);
+	}
+	stream_list = 0;
+	for (cur = stream_const_list; cur; cur = next) {
+		next = cur->next;
+		free((char*)cur->ident);
+		free(cur);
+	}
+	stream_const_list = 0;
+	vcd_names_delete(&stream_tab);
+	vcd_names_delete(&stream_var);
+	nexus_ident_delete();
+	free(stream_server);
 	
 	return 0;
 }
@@ -218,7 +245,7 @@ static PLI_INT32 startstream_cb(p_cb_data cause) {
 	stream_status = 2;
 
 	startstream_time = timerec_to_time64(cause->time);
-	stream_time = startstream_time;
+	stream_cur_time = startstream_time;
 	
 	strbuf_append_linef(&message, "$enddefinitions $end\n");
 
@@ -229,8 +256,7 @@ static PLI_INT32 startstream_cb(p_cb_data cause) {
 	strbuf_append_linef(&message, "#%" PLI_UINT64_FMT "\n", startstream_time);
 	strbuf_append_linef(&message, "$dumpvars\n");
 	ITERATE_VCD_INFO(stream_list, stream_info, next, show_this_item);
-	strbuf_append_linef(&message, "$end");
-	
+	strbuf_append_linef(&message, "$end\n");
 	send_message(message.data);
 	strbuf_free(&message);
 
@@ -318,16 +344,54 @@ static void start_producer(vpiHandle callh) {
 			prec -= 1;
 		}
 		strbuf_init(&message, 50);
-		strbuf_append_linef(&message, "$date\n\t%s\n$end", asctime(localtime(&walltime)));
+		strbuf_append_linef(&message, "$date\n\t%s\n$end\n", asctime(localtime(&walltime)));
 		strbuf_append_linef(&message, "$version\nIcarus Verilog\n$end\n$timescale\n\t%u%s\n$end\n", scale, units_names[udx]);
 		send_message(message.data);
 		strbuf_free(&message);
 	}
 
-	vpi_printf("Stream info: started producer listening at %s\n", stream_server);
+	vpi_printf("Stream info: started producer producing to %s\n", stream_server);
+}
+
+static PLI_INT32 variable_cb_2(p_cb_data cause) {
+
+	struct stream_info *info = stream_dmp_list;
+	PLI_UINT32 now = timerec_to_time64(cause->time);
+	
+	if (now != stream_cur_time) {
+		strbuf_append_linef(&message, "#%" PLI_UINT64_FMT "\n", now);
+		stream_cur_time = now;
+	}
+
+	do {
+		show_this_item(info);
+		info->scheduled = 0;
+	} while ((info = info->dmp_next) != 0);
+
+	stream_dmp_list = 0;
+	send_message(message.data);
+	strbuf_free(&message);
+	
+	return 0;
 }
 
 static PLI_INT32 variable_cb_1(p_cb_data cause) {
+	struct t_cb_data cb;
+	struct stream_info *info = (struct stream_info*) cause->user_data;
+	
+	if (info->scheduled) return 0;
+	if (stream_status != 2) return 0;
+	
+	if (!stream_dmp_list) {
+		cb = *cause;
+		cb.time = &zero_delay;
+		cb.reason = cbReadOnlySynch;
+		cb.cb_rtn = variable_cb_2;
+		vpi_register_cb(&cb);
+	}
+	info->scheduled = 1;
+	info->dmp_next = stream_dmp_list;
+	stream_dmp_list = info;
 	return 0;
 }
 

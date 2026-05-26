@@ -168,6 +168,7 @@ __inline__ static int dump_header_pending(void)
 
 static PLI_INT32 variable_cb_2(p_cb_data cause)
 {
+
       struct vcd_info* info = vcd_dmp_list;
       PLI_UINT64 now = timerec_to_time64(cause->time);
 
@@ -188,6 +189,7 @@ static PLI_INT32 variable_cb_2(p_cb_data cause)
 
 static PLI_INT32 variable_cb_1(p_cb_data cause)
 {
+
       struct t_cb_data cb;
       struct vcd_info*info = (struct vcd_info*)cause->user_data;
 
@@ -204,6 +206,7 @@ static PLI_INT32 variable_cb_1(p_cb_data cause)
                                "exceeded. $end\n", dump_limit);
             return 0;
       }
+
 
       if (!vcd_dmp_list) {
           cb = *cause;
