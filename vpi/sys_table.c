@@ -151,7 +151,9 @@ static void sys_lxt_or_vcd_register(void)
 	    } else if (strcmp(vlog_info.argv[idx],"-none") == 0) {
 		  dumper = "none";
 
-	    } else if (strncmp(vlog_info.argv[idx],"-dumpfile=",10) == 0) {
+	    } else if (strcmp(vlog_info.argv[idx], "-stream") == 0) {
+		  dumper = "stream";
+		} else if (strncmp(vlog_info.argv[idx],"-dumpfile=",10) == 0) {
 		  vcd_set_dump_path_default(vlog_info.argv[idx]+10);
 	    }
       }
@@ -192,6 +194,12 @@ static void sys_lxt_or_vcd_register(void)
       else if (strcmp(dumper, "NONE") == 0)
 	    sys_vcdoff_register();
 
+      else if (strcmp(dumper, "stream") == 0)
+	    sys_stream_register();
+
+      else if (strcmp(dumper, "STREAM") == 0)
+	    sys_stream_register();
+
       else {
 	    vpi_mcd_printf(1, "system.vpi: Unknown dumper format: %s,"
 		           " using VCD instead.\n", dumper);
@@ -220,7 +228,6 @@ void (*vlog_startup_routines[])(void) = {
       sys_special_register,
       table_model_register,
       vams_simparam_register,
-	  sys_stream_register,
       0
 };
 
