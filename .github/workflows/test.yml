@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - testing
   # All pull_requests trigger a retest.
   pull_request:
   workflow_dispatch:
@@ -26,6 +27,7 @@ jobs:
     - name: Install dependencies
       run: |
         brew install bison
+        brew install librdkafka
 
     - name: Build, check and install
       run: |
@@ -68,6 +70,7 @@ jobs:
         . .venv/bin/activate
         pip install --upgrade pip
         pip install -r Documentation/requirements.txt
+        sudo apt install librdkafka-dev
 
     - name: Build, check and install
       run: |
@@ -127,6 +130,7 @@ jobs:
           base-devel
           python-pip
           mingw-w64-${{ matrix.env }}-perl
+          mingw-w64-${{ matrix.env }}-librdkafka
 
     - uses: actions/setup-python@v6
       with:
