@@ -1,0 +1,5 @@
+{
+	"type": "normal",
+	"source": "stream_test_1.v",
+	"vvp-args-extended": "-stream"
+}
