@@ -91,7 +91,7 @@ def process_test(item: list, cfg: dict) -> list:
         try:
             it_dict = json.load(fd)
         except json.decoder.JSONDecodeError as exception:
-            raise InvalidJSON(it_key, test_path, exception) from exception
+            raise InvalidJSON(it_key, test_path, str(exception)) from exception
 
     # Wrap all of this into an options dictionary for ease of handling.
     it_opts = {
@@ -103,8 +103,13 @@ def process_test(item: list, cfg: dict) -> list:
         'gold'              : it_dict.get('gold', None),
         'diff'              : None,
         'vvp_args'          : it_dict.get('vvp-args', [ ]),
-        'vvp_args_extended' : it_dict.get('vvp-args-extended', [ ])
+        'vvp_args_extended' : it_dict.get('vvp-args-extended', [ ]),
+        'stream'            : it_dict.get('stream', [ ]),
+        'server'            : it_dict.get('server', [ ])
     }
+    if it_opts['stream']:
+        it_opts['vvp_args_extended'].append("-stream")
+        it_opts['vvp_args_extended'].append("-no-date")
 
     if cfg['strict']:
         it_opts['iverilog_args'].append("-gstrict-expr-width")

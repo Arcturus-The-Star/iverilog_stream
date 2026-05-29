@@ -1,5 +1,7 @@
 {
 	"type": "normal",
 	"source": "stream_test_1.v",
-	"vvp-args-extended": "-stream"
+	"stream": true,
+	"server": "localhost:9092",
+	"gold": "stream_test_1"
 }
