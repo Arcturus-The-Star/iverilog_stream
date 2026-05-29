@@ -44,10 +44,10 @@ jobs:
           -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 \
           -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
           -e KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true \
-          bitnami/kafka:latest
+          apache/kafka:4.3.0
         # Wait for broker to be ready
         sleep 15
-        docker exec kafka kafka-topics.sh --create \
+        docker exec kafka /opt/kafka/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
           --partitions 1 \
@@ -134,8 +134,7 @@ jobs:
         sudo make install
     - name: Create Kafka topic
       run: |
-        docker exec $(docker ps -q --filter ancestor=apache/kafka:4.3.0) \
-          kafka-topics.sh --create \
+        docker exec kafka /opt/kafka/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
           --partitions 1 \
@@ -197,10 +196,15 @@ jobs:
         . .venv/bin/activate
         pip install --upgrade pip
         pip install kafka-python
+    - name: Start Docker daemon
+      shell: pwsh
+      run: |
+        Start-Service docker
     - name: Start Kafka
       run: |
         export PATH=$PATH:/c/Program\ Files/Docker/Docker/resources/bin
         docker pull apache/kafka:4.3.0
+        docker run -d --name kafka \
           -p 9092:9092 \
           -e KAFKA_CFG_NODE_ID=0 \
           -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
@@ -210,10 +214,9 @@ jobs:
           -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 \
           -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
           -e KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true \
-          bitnami/kafka:latest
-        # Wait for broker to be ready
+          apache/kafka:4.3.0
         sleep 15
-        docker exec kafka kafka-topics.sh --create \
+        docker exec kafka /opt/kafka/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
           --partitions 1 \
