@@ -28,17 +28,17 @@ jobs:
       run: |
         brew install bison
         brew install librdkafka
+        brew install coreutils
     - name: Start Kafka
       run: |
         brew install kafka
         BREW_PREFIX=$(brew --prefix)
-        # Clear any existing data directory to avoid cluster ID mismatch
         rm -rf $BREW_PREFIX/var/lib/kraft-combined-logs
         KAFKA_CLUSTER_ID=$(kafka-storage random-uuid)
         kafka-storage format --standalone -t $KAFKA_CLUSTER_ID \
           -c $BREW_PREFIX/etc/kafka/server.properties
         kafka-server-start $BREW_PREFIX/etc/kafka/server.properties &
-        timeout 60 bash -c 'until kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
+        gtimeout 60 bash -c 'until kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
         kafka-topics --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
@@ -80,6 +80,7 @@ jobs:
         ports:
           - 9092:9092
         env:
+          CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
           KAFKA_NODE_ID: 1
           KAFKA_PROCESS_ROLES: broker,controller
           KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
