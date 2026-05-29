@@ -53,6 +53,7 @@ jobs:
 
     - name: Test
       run: |
+        . .venv/bin/activate
         make check-installed
 
 
@@ -96,6 +97,7 @@ jobs:
 
     - name: Test
       run:
+        . .venv/bin/activate
         make check-installed
 
     - name: Documentation
@@ -146,10 +148,10 @@ jobs:
         
     - name: Set up Python environment
       run: |
-          python -m venv .venv
-          . .venv/Scripts/activate
-          pip install --upgrade pip
-          pip install kafka-python
+        python -m venv .venv
+        . .venv/bin/activate
+        pip install --upgrade pip
+        pip install kafka-python
 
     - name: Build and check
       run: |
@@ -172,6 +174,7 @@ jobs:
 
     - name: Test
       run: |
+        . .venv/Scripts/activate
         make check-installed
 
     - uses: actions/upload-artifact@v7
