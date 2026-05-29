@@ -7,6 +7,8 @@ import difflib
 import os
 import sys
 import re
+import stream_test
+import threading
 
 def assemble_iverilog_cmd(options: dict, cfg: dict, outfile: str) -> list:
     '''Build the iverilog command line'''
@@ -32,7 +34,7 @@ def assemble_vvp_cmd(options: dict, cfg: dict) -> list:
     return res
 
 
-def get_ivl_version (suffix: str) -> int:
+def get_ivl_version (suffix: str) -> int | None:
     '''Figure out the version of the installed iverilog compler.
 
     The return value is a list of 2 numbers, the major and minor version
@@ -307,11 +309,19 @@ def do_run_normal(options: dict, cfg: dict, expected_fail: bool,
     ivl_rtn = build_ivl_return(translation_fail, ivl_res)
     if ivl_rtn:
         return ivl_rtn
-
+    
+    # set up streaming
+    stream = None
+    if options['stream']:
+        stream = threading.Thread(target=stream_test.stream_listen, args=(options,))
+        stream.start()
     # run the vvp command
     vvp_cmd = assemble_vvp_cmd(options, cfg)
     vvp_res = run_cmd(vvp_cmd)
     log_results(it_key, "vvp", vvp_res)
+    if options['stream'] and stream is not None:
+        stream_test.run = False
+        stream.join()
 
     vvp_rtn = build_vvp_return(expected_fail, vvp_res)
     if vvp_rtn:
@@ -321,6 +331,8 @@ def do_run_normal(options: dict, cfg: dict, expected_fail: bool,
                 "vvp-stdout", "vvp-stderr"]
     if cfg['vlog95']:
         log_list[2:2] = ["iverilog-vlog95-stdout", "iverilog-vlog95-stderr"]
+    if options['stream']:
+        log_list.append("vvp-stream")
 
     return check_run_outputs(options, vvp_res.stdout.decode('ascii'), log_list, expected_fail)
 

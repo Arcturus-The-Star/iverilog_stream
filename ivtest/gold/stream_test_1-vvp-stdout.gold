@@ -1,0 +1,2 @@
+Stream info: started producer producing to localhost:9092
+ivltests/stream_test_1.v:12: $finish called at 168 (1s)
