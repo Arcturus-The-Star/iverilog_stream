@@ -32,6 +32,8 @@ jobs:
       run: |
         brew install kafka
         BREW_PREFIX=$(brew --prefix)
+        # Clear any existing data directory to avoid cluster ID mismatch
+        rm -rf $BREW_PREFIX/var/lib/kraft-combined-logs
         KAFKA_CLUSTER_ID=$(kafka-storage random-uuid)
         kafka-storage format --standalone -t $KAFKA_CLUSTER_ID \
           -c $BREW_PREFIX/etc/kafka/server.properties
@@ -104,7 +106,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -qq
-        sudo apt install -y make g++ git bison flex gperf libreadline-dev libbz2-dev autoconf python3-venv default-jre librdkafka-dev
+        sudo apt install -y make g++ git bison flex gperf libreadline-dev libbz2-dev autoconf python3-venv librdkafka-dev
+        sudo apt install -y openjdk-21-jre-headless
         python3 -m venv .venv
         . .venv/bin/activate
         pip install --upgrade pip
