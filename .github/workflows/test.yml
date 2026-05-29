@@ -28,7 +28,28 @@ jobs:
       run: |
         brew install bison
         brew install librdkafka
-
+    - name: Start Kafka
+      run: |
+        docker pull bitnami/kafka:latest
+        docker run -d --name kafka \
+          -p 9092:9092 \
+          -e KAFKA_CFG_NODE_ID=0 \
+          -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
+          -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
+          -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+          -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
+          -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 \
+          -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+          -e KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true \
+          bitnami/kafka:latest
+        # Wait for broker to be ready
+        sleep 15
+        docker exec kafka kafka-topics.sh --create \
+          --topic iv_data_stream \
+          --bootstrap-server localhost:9092 \
+          --partitions 1 \
+          --replication-factor 1
+    
     - name: Set up Python environment
       run: |
         python3 -m venv .venv
@@ -58,6 +79,20 @@ jobs:
 
 
   lin:
+    services:
+        kafka:
+          image: bitnami/kafka:latest
+          ports:
+            - 9092:9092
+          env:
+            KAFKA_CFG_NODE_ID: 0
+            KAFKA_CFG_PROCESS_ROLES: controller,broker
+            KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+            KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+            KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+            KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+            KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+            KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
     strategy:
       fail-fast: false
       matrix:
@@ -94,7 +129,14 @@ jobs:
         ./configure $CONFIG_OPTS
         make -j$(nproc) check
         sudo make install
-
+    - name: Create Kafka topic
+      run: |
+        docker exec $(docker ps -q --filter ancestor=bitnami/kafka) \
+          kafka-topics.sh --create \
+          --topic iv_data_stream \
+          --bootstrap-server localhost:9092 \
+          --partitions 1 \
+          --replication-factor 1
     - name: Test
       run:
         . .venv/bin/activate
@@ -152,6 +194,27 @@ jobs:
         . .venv/bin/activate
         pip install --upgrade pip
         pip install kafka-python
+    - name: Start Kafka
+      run: |
+        docker pull bitnami/kafka:latest
+        docker run -d --name kafka \
+          -p 9092:9092 \
+          -e KAFKA_CFG_NODE_ID=0 \
+          -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
+          -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
+          -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+          -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
+          -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 \
+          -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+          -e KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true \
+          bitnami/kafka:latest
+        # Wait for broker to be ready
+        sleep 15
+        docker exec kafka kafka-topics.sh --create \
+          --topic iv_data_stream \
+          --bootstrap-server localhost:9092 \
+          --partitions 1 \
+          --replication-factor 1
 
     - name: Build and check
       run: |
