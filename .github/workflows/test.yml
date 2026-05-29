@@ -31,9 +31,12 @@ jobs:
     - name: Start Kafka
       run: |
         brew install kafka
-        brew services start zookeeper
-        brew services start kafka
-        timeout 60 bash -c 'until /usr/local/bin/kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
+        # Format storage for KRaft mode
+        KAFKA_CLUSTER_ID=$(kafka-storage random-uuid)
+        kafka-storage format -t $KAFKA_CLUSTER_ID -c /usr/local/etc/kafka/kraft/server.properties
+        # Start broker directly (not as a service, so we can see errors)
+        /usr/local/opt/kafka/bin/kafka-server-start /usr/local/etc/kafka/kraft/server.properties &
+        timeout 60 bash -c 'until kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
         kafka-topics --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
@@ -98,16 +101,14 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -qq
-        sudo apt install -y make g++ git bison flex gperf libreadline-dev libbz2-dev autoconf python3-venv
+        sudo apt install -y make g++ git bison flex gperf libreadline-dev libbz2-dev autoconf python3-venv default-jre librdkafka-dev
         python3 -m venv .venv
         . .venv/bin/activate
         pip install --upgrade pip
         pip install -r Documentation/requirements.txt
         pip install kafka-python
-        sudo apt install librdkafka-dev
     - name: Create Kafka topic
       run: |
-        sudo apt install -y default-jre
         wget -q https://archive.apache.org/dist/kafka/3.7.0/kafka_2.13-3.7.0.tgz
         tar -xzf kafka_2.13-3.7.0.tgz
         timeout 60 bash -c 'until kafka_2.13-3.7.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
@@ -196,27 +197,27 @@ jobs:
         $kafkaName = "kafka_$scalaVersion-$kafkaVersion"
         Invoke-WebRequest -Uri "https://archive.apache.org/dist/kafka/$kafkaVersion/$kafkaName.tgz" -OutFile "$kafkaName.tgz"
         tar -xzf "$kafkaName.tgz"
-        
-        # Start in KRaft mode (no Zookeeper)
-        $logDir = "$PWD\kafka-logs"
-        New-Item -ItemType Directory -Force -Path $logDir
-        .\$kafkaName\bin\windows\kafka-storage.bat format -t $(.\$kafkaName\bin\windows\kafka-storage.bat random-uuid) -c .\$kafkaName\config\kraft\server.properties
-        Start-Process -NoNewWindow .\$kafkaName\bin\windows\kafka-server-start.bat -ArgumentList ".\$kafkaName\config\kraft\server.properties"
-        
+
+        # Generate UUID first, separately
+        $uuid = & ".\$kafkaName\bin\windows\kafka-storage.bat" random-uuid
+        $uuid = $uuid.Trim()
+        Write-Host "Cluster UUID: $uuid"
+
+        # Format storage
+        & ".\$kafkaName\bin\windows\kafka-storage.bat" format -t $uuid -c ".\$kafkaName\config\kraft\server.properties"
+
+        # Start broker
+        Start-Process -NoNewWindow -FilePath ".\$kafkaName\bin\windows\kafka-server-start.bat" -ArgumentList ".\$kafkaName\config\kraft\server.properties"
+
         # Wait for broker
-        $timeout = 60
-        $elapsed = 0
-        while ($elapsed -lt $timeout) {
-          try {
-            .\$kafkaName\bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092 2>$null
-            break
-          } catch {
-            Start-Sleep -Seconds 3
-            $elapsed += 3
-          }
+        $deadline = (Get-Date).AddSeconds(60)
+        while ((Get-Date) -lt $deadline) {
+          $result = & ".\$kafkaName\bin\windows\kafka-topics.bat" --list --bootstrap-server localhost:9092 2>$null
+          if ($LASTEXITCODE -eq 0) { break }
+          Start-Sleep -Seconds 3
         }
-        
-        .\$kafkaName\bin\windows\kafka-topics.bat --create `
+
+        & ".\$kafkaName\bin\windows\kafka-topics.bat" --create `
           --topic iv_data_stream `
           --bootstrap-server localhost:9092 `
           --partitions 1 `
