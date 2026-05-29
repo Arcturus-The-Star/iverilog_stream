@@ -107,8 +107,10 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -qq
-        sudo apt install -y make g++ git bison flex gperf libreadline-dev libbz2-dev autoconf python3-venv librdkafka-dev
-        sudo apt install -y openjdk-21-jre-headless
+        sudo apt install -y make g++ git bison flex gperf libreadline-dev libbz2-dev autoconf python3-venv librdkafka-dev openjdk-21-jre-headless
+        sudo update-alternatives --set java /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+        echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> $GITHUB_ENV
+        echo "/usr/lib/jvm/java-21-openjdk-amd64/bin" >> $GITHUB_PATH
         python3 -m venv .venv
         . .venv/bin/activate
         pip install --upgrade pip
@@ -116,6 +118,7 @@ jobs:
         pip install kafka-python
     - name: Create Kafka topic
       run: |
+        java -version
         echo "Downloading Kafka..."
         curl -fL --max-time 120 -o kafka.tgz "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz"
         echo "Extracting..."
