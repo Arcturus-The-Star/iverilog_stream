@@ -31,11 +31,12 @@ jobs:
     - name: Start Kafka
       run: |
         brew install kafka
-        # Format storage for KRaft mode
-        KAFKA_CLUSTER_ID=$(kafka-storage random-uuid)
-        kafka-storage format -t $KAFKA_CLUSTER_ID -c /usr/local/etc/kafka/kraft/server.properties
-        # Start broker directly (not as a service, so we can see errors)
-        /usr/local/opt/kafka/bin/kafka-server-start /usr/local/etc/kafka/kraft/server.properties &
+        BREW_PREFIX=$(brew --prefix)
+        # Use the kraft config that ships with the brew install
+        kafka-storage format \
+          -t $(kafka-storage random-uuid) \
+          -c $BREW_PREFIX/etc/kafka/kraft/server.properties
+        kafka-server-start $BREW_PREFIX/etc/kafka/kraft/server.properties &
         timeout 60 bash -c 'until kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
         kafka-topics --create \
           --topic iv_data_stream \
@@ -109,8 +110,8 @@ jobs:
         pip install kafka-python
     - name: Create Kafka topic
       run: |
-        wget -q https://archive.apache.org/dist/kafka/3.7.0/kafka_2.13-3.7.0.tgz
-        tar -xzf kafka_2.13-3.7.0.tgz
+        curl -fL -o kafka.tgz "https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz"
+        tar -xzf kafka.tgz
         timeout 60 bash -c 'until kafka_2.13-3.7.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
         kafka_2.13-3.7.0/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
@@ -193,31 +194,30 @@ jobs:
       shell: pwsh
       run: |
         $kafkaVersion = "3.7.0"
-        $scalaVersion = "2.13"
-        $kafkaName = "kafka_$scalaVersion-$kafkaVersion"
-        Invoke-WebRequest -Uri "https://archive.apache.org/dist/kafka/$kafkaVersion/$kafkaName.tgz" -OutFile "$kafkaName.tgz"
-        tar -xzf "$kafkaName.tgz"
+        $kafkaName = "kafka_2.13-$kafkaVersion"
+        Invoke-WebRequest -Uri "https://downloads.apache.org/kafka/$kafkaVersion/$kafkaName.tgz" -OutFile "kafka.tgz"
+        tar -xzf "kafka.tgz"
+        # Move to a short path to avoid "input line too long" errors in .bat files
+        Move-Item $kafkaName C:\kafka
 
-        # Generate UUID first, separately
-        $uuid = & ".\$kafkaName\bin\windows\kafka-storage.bat" random-uuid
-        $uuid = $uuid.Trim()
-        Write-Host "Cluster UUID: $uuid"
+        # Get UUID - last line only, stripping any log noise
+        $uuid = (& C:\kafka\bin\windows\kafka-storage.bat random-uuid 2>$null | Select-Object -Last 1).Trim()
+        Write-Host "UUID: $uuid"
 
-        # Format storage
-        & ".\$kafkaName\bin\windows\kafka-storage.bat" format -t $uuid -c ".\$kafkaName\config\kraft\server.properties"
+        & C:\kafka\bin\windows\kafka-storage.bat format -t $uuid -c C:\kafka\config\kraft\server.properties
 
-        # Start broker
-        Start-Process -NoNewWindow -FilePath ".\$kafkaName\bin\windows\kafka-server-start.bat" -ArgumentList ".\$kafkaName\config\kraft\server.properties"
+        Start-Process -NoNewWindow -FilePath "C:\kafka\bin\windows\kafka-server-start.bat" `
+          -ArgumentList "C:\kafka\config\kraft\server.properties"
 
         # Wait for broker
         $deadline = (Get-Date).AddSeconds(60)
         while ((Get-Date) -lt $deadline) {
-          $result = & ".\$kafkaName\bin\windows\kafka-topics.bat" --list --bootstrap-server localhost:9092 2>$null
+          & C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092 2>$null
           if ($LASTEXITCODE -eq 0) { break }
           Start-Sleep -Seconds 3
         }
 
-        & ".\$kafkaName\bin\windows\kafka-topics.bat" --create `
+        & C:\kafka\bin\windows\kafka-topics.bat --create `
           --topic iv_data_stream `
           --bootstrap-server localhost:9092 `
           --partitions 1 `
