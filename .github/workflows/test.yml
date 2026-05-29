@@ -32,10 +32,9 @@ jobs:
       run: |
         brew install kafka
         BREW_PREFIX=$(brew --prefix)
-        # Copy the kraft server.properties into place
-        cp $BREW_PREFIX/etc/kafka/kraft/server.properties $BREW_PREFIX/etc/kafka/server.properties
         KAFKA_CLUSTER_ID=$(kafka-storage random-uuid)
-        kafka-storage format -t $KAFKA_CLUSTER_ID -c $BREW_PREFIX/etc/kafka/server.properties
+        kafka-storage format --standalone -t $KAFKA_CLUSTER_ID \
+          -c $BREW_PREFIX/etc/kafka/server.properties
         kafka-server-start $BREW_PREFIX/etc/kafka/server.properties &
         timeout 60 bash -c 'until kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
         kafka-topics --create \
@@ -74,19 +73,22 @@ jobs:
 
   lin:
     services:
-        kafka:
-          image: apache/kafka:4.3.0
-          ports:
-            - 9092:9092
-          env:
-            KAFKA_CFG_NODE_ID: 0
-            KAFKA_CFG_PROCESS_ROLES: controller,broker
-            KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-            KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-            KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-            KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
-            KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-            KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      kafka:
+        image: apache/kafka:4.3.0
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     strategy:
       fail-fast: false
       matrix:
@@ -112,7 +114,7 @@ jobs:
       run: |
         curl -fL -o kafka.tgz "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz"
         tar -xzf kafka.tgz
-        timeout 60 bash -c 'until kafka_2.13-4.3.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
+        timeout 120 bash -c 'until kafka_2.13-4.3.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
         kafka_2.13-4.3.0/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
