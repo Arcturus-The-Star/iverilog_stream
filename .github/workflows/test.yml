@@ -28,27 +28,13 @@ jobs:
       run: |
         brew install bison
         brew install librdkafka
-        brew install docker
-        brew install colima
-        colima start
-        timeout 60 bash -c 'until docker info 2>/dev/null; do sleep 2; done'
     - name: Start Kafka
       run: |
-        docker pull apache/kafka:4.3.0
-        docker run -d --name kafka \
-          -p 9092:9092 \
-          -e KAFKA_CFG_NODE_ID=0 \
-          -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
-          -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-          -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
-          -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-          -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 \
-          -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-          -e KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true \
-          apache/kafka:4.3.0
-        # Wait for broker to be ready
-        sleep 15
-        docker exec kafka /opt/kafka/bin/kafka-topics.sh --create \
+        brew install kafka
+        brew services start zookeeper
+        brew services start kafka
+        timeout 60 bash -c 'until /usr/local/bin/kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
+        kafka-topics --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
           --partitions 1 \
@@ -119,7 +105,17 @@ jobs:
         pip install -r Documentation/requirements.txt
         pip install kafka-python
         sudo apt install librdkafka-dev
-
+    - name: Create Kafka topic
+      run: |
+        sudo apt install -y default-jre
+        wget -q https://archive.apache.org/dist/kafka/3.7.0/kafka_2.13-3.7.0.tgz
+        tar -xzf kafka_2.13-3.7.0.tgz
+        timeout 60 bash -c 'until kafka_2.13-3.7.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
+        kafka_2.13-3.7.0/bin/kafka-topics.sh --create \
+          --topic iv_data_stream \
+          --bootstrap-server localhost:9092 \
+          --partitions 1 \
+          --replication-factor 1
     - name: Build, check and install
       run: |
         CONFIG_OPTS="--enable-libveriuser"
@@ -133,15 +129,7 @@ jobs:
         ./configure $CONFIG_OPTS
         make -j$(nproc) check
         sudo make install
-    - name: Create Kafka topic
-      run: |
-        curl -sL --retry 3 https://archive.apache.org/dist/kafka/4.3.0/kafka_2.13-4.3.0.tgz | tar -xz
-        timeout 60 bash -c 'until kafka_2.13-4.3.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
-        kafka_2.13-4.3.0/bin/kafka-topics.sh --create \
-          --topic iv_data_stream \
-          --bootstrap-server localhost:9092 \
-          --partitions 1 \
-          --replication-factor 1
+
     - name: Test
       run:
         . .venv/bin/activate
@@ -199,41 +187,39 @@ jobs:
         . .venv/bin/activate
         pip install --upgrade pip
         pip install kafka-python
-    - name: Start Docker daemon
-      shell: pwsh
-      run: |
-        $cli = Get-ChildItem "C:\Program Files\Docker" -Recurse -Filter "DockerCli.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($cli) {
-          Write-Host "Found DockerCli at $($cli.FullName)"
-          & $cli.FullName -SwitchLinuxEngine
-          Start-Sleep -Seconds 15
-        } else {
-          Write-Host "DockerCli.exe not found, trying Start-Service"
-          Start-Service docker -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 15
-        }
-        Start-Service docker
 
     - name: Start Kafka
+      shell: pwsh
       run: |
-        export PATH=$PATH:/c/Program\ Files/Docker/Docker/resources/bin
-        docker pull apache/kafka:4.3.0
-        docker run -d --name kafka \
-          -p 9092:9092 \
-          -e KAFKA_CFG_NODE_ID=0 \
-          -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
-          -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-          -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
-          -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-          -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 \
-          -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-          -e KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true \
-          apache/kafka:4.3.0
-        sleep 15
-        docker exec kafka /opt/kafka/bin/kafka-topics.sh --create \
-          --topic iv_data_stream \
-          --bootstrap-server localhost:9092 \
-          --partitions 1 \
+        $kafkaVersion = "3.7.0"
+        $scalaVersion = "2.13"
+        $kafkaName = "kafka_$scalaVersion-$kafkaVersion"
+        Invoke-WebRequest -Uri "https://archive.apache.org/dist/kafka/$kafkaVersion/$kafkaName.tgz" -OutFile "$kafkaName.tgz"
+        tar -xzf "$kafkaName.tgz"
+        
+        # Start in KRaft mode (no Zookeeper)
+        $logDir = "$PWD\kafka-logs"
+        New-Item -ItemType Directory -Force -Path $logDir
+        .\$kafkaName\bin\windows\kafka-storage.bat format -t $(.\$kafkaName\bin\windows\kafka-storage.bat random-uuid) -c .\$kafkaName\config\kraft\server.properties
+        Start-Process -NoNewWindow .\$kafkaName\bin\windows\kafka-server-start.bat -ArgumentList ".\$kafkaName\config\kraft\server.properties"
+        
+        # Wait for broker
+        $timeout = 60
+        $elapsed = 0
+        while ($elapsed -lt $timeout) {
+          try {
+            .\$kafkaName\bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092 2>$null
+            break
+          } catch {
+            Start-Sleep -Seconds 3
+            $elapsed += 3
+          }
+        }
+        
+        .\$kafkaName\bin\windows\kafka-topics.bat --create `
+          --topic iv_data_stream `
+          --bootstrap-server localhost:9092 `
+          --partitions 1 `
           --replication-factor 1
 
     - name: Build and check
