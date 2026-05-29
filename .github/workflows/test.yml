@@ -30,7 +30,7 @@ jobs:
         brew install librdkafka
         brew install docker
         brew install colima
-        colima start --wait
+        colima start
         timeout 60 bash -c 'until docker info 2>/dev/null; do sleep 2; done'
     - name: Start Kafka
       run: |
@@ -135,7 +135,7 @@ jobs:
         sudo make install
     - name: Create Kafka topic
       run: |
-        curl -sL https://downloads.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz | tar -xz
+        curl -sL --retry 3 https://archive.apache.org/dist/kafka/4.3.0/kafka_2.13-4.3.0.tgz | tar -xz
         timeout 60 bash -c 'until kafka_2.13-4.3.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
         kafka_2.13-4.3.0/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
@@ -202,8 +202,16 @@ jobs:
     - name: Start Docker daemon
       shell: pwsh
       run: |
-        & "C:\Program Files\Docker\Docker\DockerCli.exe" -SwitchLinuxEngine
-        Start-Sleep -Seconds 10
+        $cli = Get-ChildItem "C:\Program Files\Docker" -Recurse -Filter "DockerCli.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cli) {
+          Write-Host "Found DockerCli at $($cli.FullName)"
+          & $cli.FullName -SwitchLinuxEngine
+          Start-Sleep -Seconds 15
+        } else {
+          Write-Host "DockerCli.exe not found, trying Start-Service"
+          Start-Service docker -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 15
+        }
         Start-Service docker
 
     - name: Start Kafka
