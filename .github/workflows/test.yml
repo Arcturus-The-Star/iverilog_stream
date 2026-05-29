@@ -32,11 +32,11 @@ jobs:
       run: |
         brew install kafka
         BREW_PREFIX=$(brew --prefix)
-        # Use the kraft config that ships with the brew install
-        kafka-storage format \
-          -t $(kafka-storage random-uuid) \
-          -c $BREW_PREFIX/etc/kafka/kraft/server.properties
-        kafka-server-start $BREW_PREFIX/etc/kafka/kraft/server.properties &
+        # Copy the kraft server.properties into place
+        cp $BREW_PREFIX/etc/kafka/kraft/server.properties $BREW_PREFIX/etc/kafka/server.properties
+        KAFKA_CLUSTER_ID=$(kafka-storage random-uuid)
+        kafka-storage format -t $KAFKA_CLUSTER_ID -c $BREW_PREFIX/etc/kafka/server.properties
+        kafka-server-start $BREW_PREFIX/etc/kafka/server.properties &
         timeout 60 bash -c 'until kafka-topics --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
         kafka-topics --create \
           --topic iv_data_stream \
@@ -110,10 +110,10 @@ jobs:
         pip install kafka-python
     - name: Create Kafka topic
       run: |
-        curl -fL -o kafka.tgz "https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz"
+        curl -fL -o kafka.tgz "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz"
         tar -xzf kafka.tgz
-        timeout 60 bash -c 'until kafka_2.13-3.7.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
-        kafka_2.13-3.7.0/bin/kafka-topics.sh --create \
+        timeout 60 bash -c 'until kafka_2.13-4.3.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 2; done'
+        kafka_2.13-4.3.0/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
           --partitions 1 \
@@ -193,35 +193,26 @@ jobs:
     - name: Start Kafka
       shell: pwsh
       run: |
-        $kafkaVersion = "3.7.0"
-        $kafkaName = "kafka_2.13-$kafkaVersion"
-        Invoke-WebRequest -Uri "https://downloads.apache.org/kafka/$kafkaVersion/$kafkaName.tgz" -OutFile "kafka.tgz"
+        Invoke-WebRequest -Uri "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz" -OutFile "kafka.tgz"
         tar -xzf "kafka.tgz"
-        # Move to a short path to avoid "input line too long" errors in .bat files
-        Move-Item $kafkaName C:\kafka
+        Move-Item kafka_2.13-4.3.0 C:\kafka
 
-        # Get UUID - last line only, stripping any log noise
-        $uuid = (& C:\kafka\bin\windows\kafka-storage.bat random-uuid 2>$null | Select-Object -Last 1).Trim()
+        $uuid = cmd /c "C:\kafka\bin\windows\kafka-storage.bat random-uuid" 2>$null | Select-Object -Last 1
+        $uuid = $uuid.Trim()
         Write-Host "UUID: $uuid"
 
-        & C:\kafka\bin\windows\kafka-storage.bat format -t $uuid -c C:\kafka\config\kraft\server.properties
+        cmd /c "C:\kafka\bin\windows\kafka-storage.bat format -t $uuid -c C:\kafka\config\kraft\server.properties"
 
-        Start-Process -NoNewWindow -FilePath "C:\kafka\bin\windows\kafka-server-start.bat" `
-          -ArgumentList "C:\kafka\config\kraft\server.properties"
+        Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat C:\kafka\config\kraft\server.properties"
 
-        # Wait for broker
         $deadline = (Get-Date).AddSeconds(60)
         while ((Get-Date) -lt $deadline) {
-          & C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092 2>$null
+          $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092" 2>$null
           if ($LASTEXITCODE -eq 0) { break }
           Start-Sleep -Seconds 3
         }
 
-        & C:\kafka\bin\windows\kafka-topics.bat --create `
-          --topic iv_data_stream `
-          --bootstrap-server localhost:9092 `
-          --partitions 1 `
-          --replication-factor 1
+        cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1"
 
     - name: Build and check
       run: |
