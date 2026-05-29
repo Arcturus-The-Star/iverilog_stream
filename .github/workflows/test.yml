@@ -116,9 +116,13 @@ jobs:
         pip install kafka-python
     - name: Create Kafka topic
       run: |
-        curl -fL -o kafka.tgz "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz"
+        echo "Downloading Kafka..."
+        curl -fL --max-time 120 -o kafka.tgz "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz"
+        echo "Extracting..."
         tar -xzf kafka.tgz
+        echo "Waiting for broker..."
         timeout 120 bash -c 'until kafka_2.13-4.3.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null; do sleep 3; done'
+        echo "Creating topic..."
         kafka_2.13-4.3.0/bin/kafka-topics.sh --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
@@ -139,7 +143,7 @@ jobs:
         sudo make install
 
     - name: Test
-      run:
+      run: |
         . .venv/bin/activate
         make check-installed
 
