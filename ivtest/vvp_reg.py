@@ -78,7 +78,7 @@ def force_gen(it_opts: dict):
     it_opts['iverilog_args'].insert(0, '-g2023')
 
 
-def process_test(item: list, cfg: list) -> str:
+def process_test(item: list, cfg: dict) -> list:
     '''Process a single test
 
     This takes in the list of tokens from the tests list file, and converts

@@ -33,9 +33,6 @@ def print_header(cfg: dict, files: list):
     print("Using list(s): {files}".format(files=', '.join(files)))
     print("-" * 76)
 
-
-
-
 if __name__ == "__main__":
     argp = argparse.ArgumentParser(description='')
     argp.add_argument('--suffix', type=str, default='',
@@ -67,7 +64,7 @@ if __name__ == "__main__":
     error_count = 0
     for cur in tests_list:
         result = vvp_reg.process_test(cur, ivl_cfg)
-        error_count += result[0]
+        error_count += ord(result[0])
         print("{name:>{width}}: {result}".format(name=cur[0], width=width, result=result[1]))
     print('=' * 76)
     print("Test results: Ran {ran}, Failed {failed}.".format(ran=len(tests_list), \
