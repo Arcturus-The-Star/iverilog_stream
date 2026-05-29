@@ -28,9 +28,12 @@ jobs:
       run: |
         brew install bison
         brew install librdkafka
+        brew install docker
+        brew install colima
+        colima start
     - name: Start Kafka
       run: |
-        docker pull bitnami/kafka:latest
+        docker pull apache/kafka:4.3.0
         docker run -d --name kafka \
           -p 9092:9092 \
           -e KAFKA_CFG_NODE_ID=0 \
@@ -81,7 +84,7 @@ jobs:
   lin:
     services:
         kafka:
-          image: bitnami/kafka:latest
+          image: apache/kafka:4.3.0
           ports:
             - 9092:9092
           env:
@@ -131,7 +134,7 @@ jobs:
         sudo make install
     - name: Create Kafka topic
       run: |
-        docker exec $(docker ps -q --filter ancestor=bitnami/kafka) \
+        docker exec $(docker ps -q --filter ancestor=apache/kafka:4.3.0) \
           kafka-topics.sh --create \
           --topic iv_data_stream \
           --bootstrap-server localhost:9092 \
@@ -196,8 +199,8 @@ jobs:
         pip install kafka-python
     - name: Start Kafka
       run: |
-        docker pull bitnami/kafka:latest
-        docker run -d --name kafka \
+        export PATH=$PATH:/c/Program\ Files/Docker/Docker/resources/bin
+        docker pull apache/kafka:4.3.0
           -p 9092:9092 \
           -e KAFKA_CFG_NODE_ID=0 \
           -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
