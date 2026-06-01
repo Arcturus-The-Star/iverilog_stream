@@ -35,6 +35,7 @@ check-installed:
 	$(MAKE) check-installed-vvp || status=1; \
 	$(MAKE) check-installed-vvp-py || status=1; \
 	$(MAKE) check-installed-vpi || status=1; \
+	$(MAKE) check-installed-stream || status=1; \
 	exit $$status
 
 check-installed-vpi:
@@ -49,9 +50,17 @@ check-installed-vvp:
 	@echo "Running vvp_reg.pl"
 	cd $(abs_srcdir); perl vvp_reg.pl $(opts)
 
-check-installed-vvp-py:
+check-installed-vvp-py: .venv
 	@echo "Running vvp_reg.py"
+	. .venv/bin/activate; \
+	pip install kafka-python > /dev/null; \
 	cd $(abs_srcdir); python3 vvp_reg.py $(opts)
+
+check-installed-stream: .venv
+	@echo "Running stream_test.py"
+	. .venv/bin/activate; \
+	pip install kafka-python > /dev/null; \
+	cd $(abs_srcdir); python3 stream_test.py $(opts)
 
 clean:
 	rm -f $(srcdir)/*.vpi
