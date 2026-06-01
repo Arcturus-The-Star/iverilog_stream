@@ -9,6 +9,7 @@ import sys
 import re
 import stream_test
 import threading
+import time
 
 def assemble_iverilog_cmd(options: dict, cfg: dict, outfile: str) -> list:
     '''Build the iverilog command line'''
@@ -313,8 +314,10 @@ def do_run_normal(options: dict, cfg: dict, expected_fail: bool,
     # set up streaming
     stream = None
     if options['stream']:
-        stream = threading.Thread(target=stream_test.stream_listen, args=(options,))
+        ready_event = threading.Event()
+        stream = threading.Thread(target=stream_test.stream_listen, args=(options,ready_event))
         stream.start()
+        ready_event.wait(timeout=10)
     # run the vvp command
     vvp_cmd = assemble_vvp_cmd(options, cfg)
     vvp_res = run_cmd(vvp_cmd)
