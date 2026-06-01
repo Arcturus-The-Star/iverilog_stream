@@ -5,7 +5,6 @@ import test_lists
 import argparse
 import sys
 import confluent_kafka
-import kafka
 import os
 
 global run
@@ -38,16 +37,6 @@ def print_header(cfg: dict, files: list):
     # pylint: disable-next=consider-using-f-string
     print("Using list(s): {files}".format(files=', '.join(files)))
     print("-" * 76)
-
-# def stream_listen(options: dict):
-#     consumer = kafka.KafkaConsumer('iv_data_stream', bootstrap_servers=options['server'])
-#     with open(os.path.join("log", f"{options['key']}-vvp-stream.log"), "wb") as f:
-#         while run:
-#             msg = consumer.poll()
-#             if msg:
-#                 for _,v in msg.items():
-#                     for v in v:
-#                         f.write(v.value)
 
 def stream_listen(options: dict, ready_event: threading.Event):
     config = {
