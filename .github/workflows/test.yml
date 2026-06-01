@@ -193,13 +193,17 @@ jobs:
         tar -xzf "kafka.tgz"
         Move-Item kafka_2.13-4.3.0 C:\kafka
 
-        # Kafka 4.x: config moved; find the right one
         $cfg = "C:\kafka\config\kraft\server.properties"
         if (-not (Test-Path $cfg)) {
           $cfg = Get-ChildItem C:\kafka\config -Recurse -Filter "server.properties" |
                  Select-Object -First 1 -ExpandProperty FullName
-          Write-Host "Found config at: $cfg"
         }
+
+        # Force IPv4 binding
+        (Get-Content $cfg) `
+          -replace 'listeners=.*', 'listeners=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093' `
+          -replace 'advertised.listeners=.*', 'advertised.listeners=PLAINTEXT://127.0.0.1:9092' |
+          Set-Content $cfg
 
         $uuid = cmd /c "C:\kafka\bin\windows\kafka-storage.bat random-uuid" 2>$null |
                 Select-Object -Last 1
@@ -211,13 +215,12 @@ jobs:
 
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
-          $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092" 2>$null
+          $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
           if ($LASTEXITCODE -eq 0) { break }
           Start-Sleep -Seconds 3
         }
 
-        cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1"
-
+        cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
     - name: Build and check
       run: |
         cd msys2
