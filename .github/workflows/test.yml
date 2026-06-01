@@ -242,6 +242,13 @@ jobs:
     - name: Install
       run: pacman -U --noconfirm msys2/*.zst
 
+    - name: Set short temp dir for pip
+      run: |
+        mkdir -p /c/t
+        echo "TMPDIR=/c/t" >> $MSYS2_ENV_FILE
+        echo "TEMP=C:\\t" >> $GITHUB_ENV
+        echo "TMP=C:\\t" >> $GITHUB_ENV
+
     - name: Test
       run: |
         make check-installed
