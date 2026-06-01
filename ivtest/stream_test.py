@@ -49,6 +49,7 @@ def stream_listen(options: dict, ready_event: threading.Event):
     def on_assign(consumer, partitions):
         for p in partitions:
             lo, hi = consumer.get_watermark_offsets(p, timeout=5.0, cached=False)
+            print(f"[stream] watermarks for {p.topic}:{p.partition} lo={lo} hi={hi}", flush=True)
             p.offset = hi
         consumer.assign(partitions)
         assigned_event.set()
