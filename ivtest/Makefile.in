@@ -62,6 +62,12 @@ check-installed-stream: .venv
 	pip install kafka-python > /dev/null; \
 	cd $(abs_srcdir); python3 stream_test.py $(opts)
 
+check-installed-stream: .venv
+	@echo "Running stream_test.py"
+	. .venv/bin/activate; \
+	pip install kafka-python > /dev/null; \
+	cd $(abs_srcdir); python3 stream_test.py $(opts)
+
 clean:
 	rm -f $(srcdir)/*.vpi
 	rm -rf $(srcdir)/log $(srcdir)/vpi_log $(srcdir)/work
