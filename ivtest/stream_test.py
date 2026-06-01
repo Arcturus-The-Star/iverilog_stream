@@ -7,8 +7,7 @@ import sys
 import confluent_kafka
 import os
 
-global run
-run = True
+stop_event = threading.Event()
 
 def print_header(cfg: dict, files: list):
     '''Print all the header information. '''
@@ -41,30 +40,38 @@ def print_header(cfg: dict, files: list):
 def stream_listen(options: dict, ready_event: threading.Event):
     config = {
         'bootstrap.servers': f"{options['server']}",
-        'auto.offset.reset': 'latest',
-        'group.id': 'iv_kafka',
+        'group.id': f"iv_kafka_{options['key']}",
         'broker.address.family': 'v4'
     }
+
+    assigned_event = threading.Event()
     
-    def on_assign(_consumer, _partitions):
-        ready_event.set()
+    def on_assign(consumer, partitions):
+        for p in partitions:
+            lo, hi = consumer.get_watermark_offsets(p, timeout=5.0, cached=False)
+            p.offset = hi
+        consumer.assign(partitions)
+        assigned_event.set()
 
     consumer = confluent_kafka.Consumer(config)
     consumer.subscribe(['iv_data_stream'], on_assign=on_assign)
-
-    while not ready_event.is_set():
+    while not assigned_event.is_set():
         consumer.poll(0.1)
-
+    consumer.poll(0.1)
+    ready_event.set()
+    msg_count = 0
     with open(os.path.join("log", f"{options['key']}-vvp-stream.log"), "wb") as f:
-        while run:
-            msg = consumer.poll(0.01)
+        while True:
+            msg = consumer.poll(0.1)
             if msg is None:
-                pass
+                if stop_event.is_set():
+                    break
             elif msg.error():
                 print(f"ERROR: {msg.error()}")
             else:
                 value = msg.value()
                 f.write(value if value else b'')
+                msg_count += 1
     consumer.close()
 
 if __name__ == "__main__":
