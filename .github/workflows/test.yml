@@ -176,16 +176,16 @@ jobs:
         New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
           -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
         git config --global core.longpaths true
-        - uses: msys2/setup-msys2@v2
-          with:
-            msystem: ${{ matrix.msystem }}
-            update: true
-            install: >
-              git
-              base-devel
-              python-pip
-              mingw-w64-${{ matrix.env }}-perl
-              mingw-w64-${{ matrix.env }}-librdkafka
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.msystem }}
+        update: true
+        install: >
+          git
+          base-devel
+          python-pip
+          mingw-w64-${{ matrix.env }}-perl
+          mingw-w64-${{ matrix.env }}-librdkafka
 
     - uses: actions/setup-python@v6
       with:
