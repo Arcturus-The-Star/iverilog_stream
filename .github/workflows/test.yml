@@ -198,15 +198,23 @@ jobs:
         tar -xzf "kafka.tgz"
         Move-Item kafka_2.13-4.3.0 C:\kafka
 
-        $uuid = cmd /c "C:\kafka\bin\windows\kafka-storage.bat random-uuid" 2>$null | Select-Object -Last 1
+        # Kafka 4.x: config moved; find the right one
+        $cfg = "C:\kafka\config\kraft\server.properties"
+        if (-not (Test-Path $cfg)) {
+          $cfg = Get-ChildItem C:\kafka\config -Recurse -Filter "server.properties" |
+                 Select-Object -First 1 -ExpandProperty FullName
+          Write-Host "Found config at: $cfg"
+        }
+
+        $uuid = cmd /c "C:\kafka\bin\windows\kafka-storage.bat random-uuid" 2>$null |
+                Select-Object -Last 1
         $uuid = $uuid.Trim()
-        Write-Host "UUID: $uuid"
 
-        cmd /c "C:\kafka\bin\windows\kafka-storage.bat format -t $uuid -c C:\kafka\config\kraft\server.properties"
+        cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
 
-        Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat C:\kafka\config\kraft\server.properties"
+        Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
 
-        $deadline = (Get-Date).AddSeconds(60)
+        $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
           $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092" 2>$null
           if ($LASTEXITCODE -eq 0) { break }

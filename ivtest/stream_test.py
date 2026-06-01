@@ -40,9 +40,10 @@ def print_header(cfg: dict, files: list):
 
 def stream_listen(options: dict, ready_event: threading.Event):
     config = {
-        'bootstrap.servers': f'{options['server']}',
+        'bootstrap.servers': f"{options['server']}",
         'auto.offset.reset': 'latest',
         'group.id': 'iv_kafka',
+        'broker.address.family': 'v4'
     }
     
     def on_assign(_consumer, _partitions):
@@ -50,6 +51,10 @@ def stream_listen(options: dict, ready_event: threading.Event):
 
     consumer = confluent_kafka.Consumer(config)
     consumer.subscribe(['iv_data_stream'], on_assign=on_assign)
+
+    while not ready_event.is_set():
+        consumer.poll(0.1)
+
     with open(os.path.join("log", f"{options['key']}-vvp-stream.log"), "wb") as f:
         while run:
             msg = consumer.poll(0.01)
