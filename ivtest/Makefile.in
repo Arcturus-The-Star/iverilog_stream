@@ -50,16 +50,22 @@ check-installed-vvp:
 	@echo "Running vvp_reg.pl"
 	cd $(abs_srcdir); perl vvp_reg.pl $(opts)
 
+ifeq ($(OS),Windows_NT)
+    PIP_INSTALL = mkdir -p /c/t && TMPDIR=/c/t pip install confluent-kafka
+else
+    PIP_INSTALL = pip install confluent-kafka
+endif
+
 check-installed-vvp-py: .venv
 	@echo "Running vvp_reg.py"
 	. .venv/bin/activate; \
-	pip install --build /c/t confluent-kafka > /dev/null; \
+	$(PIP_INSTALL) > /dev/null; \
 	cd $(abs_srcdir); python3 vvp_reg.py $(opts)
 
 check-installed-stream: .venv
 	@echo "Running stream_test.py"
 	. .venv/bin/activate; \
-	pip install --build /c/t confluent-kafka > /dev/null; \
+	$(PIP_INSTALL) > /dev/null; \
 	cd $(abs_srcdir); python3 stream_test.py $(opts)
 
 .venv:
