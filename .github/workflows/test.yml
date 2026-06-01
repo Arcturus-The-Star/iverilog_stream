@@ -170,12 +170,7 @@ jobs:
       shell: bash
 
     - uses: actions/checkout@v6
-    - name: Enable long paths
-      shell: pwsh
-      run: |
-        New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
-          -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
-        git config --global core.longpaths true
+
     - uses: msys2/setup-msys2@v2
       with:
         msystem: ${{ matrix.msystem }}
@@ -241,13 +236,6 @@ jobs:
 
     - name: Install
       run: pacman -U --noconfirm msys2/*.zst
-
-    - name: Set short temp dir for pip
-      run: |
-        mkdir -p /c/t
-        echo "TMPDIR=/c/t" >> $MSYS2_ENV_FILE
-        echo "TEMP=C:\\t" >> $GITHUB_ENV
-        echo "TMP=C:\\t" >> $GITHUB_ENV
 
     - name: Test
       run: |
