@@ -52,25 +52,15 @@ check-installed-vvp:
 
 check-installed-vvp-py: .venv
 	@echo "Running vvp_reg.py"
-	if command -v pacman > /dev/null 2>&1; then \
-		pacman -S --noconfirm --needed mingw-w64-$(MSYS2_ENV)-python-confluent-kafka > /dev/null 2>&1; \
-		cd $(abs_srcdir); python3 stream_test.py $(opts); \
-	else \
-		. .venv/bin/activate; \
-		pip install confluent-kafka > /dev/null; \
-		cd $(abs_srcdir); python3 vvp_reg.py $(opts); \
-	fi
+	. .venv/bin/activate; \
+	TMPDIR=/tmp pip install confluent-kafka > /dev/null; \
+	cd $(abs_srcdir); python3 vvp_reg.py $(opts)
 
 check-installed-stream: .venv
 	@echo "Running stream_test.py"
-	if command -v pacman > /dev/null 2>&1; then \
-		pacman -S --noconfirm --needed mingw-w64-$(MSYS2_ENV)-python-confluent-kafka > /dev/null 2>&1; \
-		cd $(abs_srcdir); python3 stream_test.py $(opts); \
-	else \
-		. .venv/bin/activate; \
-		pip install confluent-kafka > /dev/null; \
-		cd $(abs_srcdir); python3 stream_test.py $(opts); \
-	fi
+	. .venv/bin/activate; \
+	TMPDIR=/tmp pip install confluent-kafka > /dev/null; \
+	cd $(abs_srcdir); python3 stream_test.py $(opts)
 
 .venv:
 	python3 -m venv .venv
