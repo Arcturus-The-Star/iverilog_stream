@@ -32,7 +32,6 @@ jobs:
     - name: Start Kafka
       run: |
         brew install kafka
-        kafka-topics --version
         BREW_PREFIX=$(brew --prefix)
         rm -rf $BREW_PREFIX/var/lib/kraft-combined-logs
         KAFKA_CLUSTER_ID=$(kafka-storage random-uuid)
@@ -187,7 +186,6 @@ jobs:
           python-pip
           mingw-w64-${{ matrix.env }}-perl
           mingw-w64-${{ matrix.env }}-librdkafka
-          mingw-w64-${{ matrix.env }}-python-confluent-kafka
 
     # - uses: actions/setup-python@v6
     #   with:
