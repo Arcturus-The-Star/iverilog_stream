@@ -250,6 +250,8 @@ def options_to_pass(options: dict) -> list:
 
 def build_ivl_return(translation_fail: bool, res: subprocess.CompletedProcess) -> list:
     '''Generate the return for the iverilog run.'''
+    print(f"stdout - {res.stdout.decode('utf-8')}")
+    print(f"stderr - {res.stderr.decode('utf-8')}")
     if translation_fail:
         if res.returncode != 0:
             return [0, "Passed - TE."]
