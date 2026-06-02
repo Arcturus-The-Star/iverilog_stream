@@ -217,8 +217,8 @@ jobs:
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
 
         Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
-        Get-Content C:\kafka\bin\windows\kafka-server-start.bat | Select-Object -First 60
-
+        Get-ChildItem C:\kafka\libs | Select-Object Name -First 20
+        Get-ChildItem C:\kafka\core -ErrorAction SilentlyContinue
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
           $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
