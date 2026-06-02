@@ -38,8 +38,10 @@ def print_header(cfg: dict, files: list):
     print("-" * 76)
 
 def stream_listen(options: dict, ready_event: threading.Event):
-    server = os.environ['KAFKA_BOOTSTRAP_SERVERS']
-    if not server: server = 'localhost:9092'
+    if "KAFKA_BOOTSTRAP_SERVERS" in os.environ:
+        server = os.environ['KAFKA_BOOTSTRAP_SERVERS']
+    else:
+        server = "localhost:9092"
     config = {
         'bootstrap.servers': f"{server}",
         'group.id': f"iv_kafka_{options['key']}",
