@@ -205,6 +205,9 @@ jobs:
           -replace 'listeners=.*', 'listeners=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093' `
           -replace 'advertised.listeners=.*', 'advertised.listeners=PLAINTEXT://127.0.0.1:9092' |
           Set-Content $cfg
+        (Get-Content $cfg) `
+          -replace 'controller.quorum.bootstrap.servers=.*', 'controller.quorum.voters=1@127.0.0.1:9093' |
+          Set-Content $cfg
 
         $bytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
         $uuid = [Convert]::ToBase64String($bytes).TrimEnd('=') -replace '\+','-' -replace '/','_'
