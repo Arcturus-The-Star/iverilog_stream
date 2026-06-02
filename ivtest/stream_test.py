@@ -45,7 +45,8 @@ def stream_listen(options: dict, ready_event: threading.Event):
     config = {
         'bootstrap.servers': f"{server}",
         'group.id': f"iv_kafka_{options['key']}",
-        'broker.address.family': 'v4'
+        'broker.address.family': 'v4',
+        "debug": "broker,protocol"
     }
 
     assigned_event = threading.Event()
