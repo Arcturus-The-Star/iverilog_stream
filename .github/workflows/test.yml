@@ -216,16 +216,12 @@ jobs:
 
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
 
-        # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
-        cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
-        echo "Exit code: $LASTEXITCODE"
-        Get-Content C:\kafka\bin\windows\kafka-server-start.bat | Select-String wmic
-        Get-ChildItem C:\kafka\bin\windows\*.bat | Select-String wmic
+        Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+        Get-Content C:\kafka\bin\windows\kafka-server-start.bat | Select-Object -First 60
 
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
           $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
-          Test-NetConnection 127.0.0.1 -Port 9092
           if ($LASTEXITCODE -eq 0) { break }
           Start-Sleep -Seconds 3
         }
