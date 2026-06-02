@@ -223,6 +223,8 @@ jobs:
         }
 
         cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
+
+        Get-Content C:\kafka.log
     - name: Build and check
       run: |
         cd msys2
@@ -248,11 +250,6 @@ jobs:
       run: |
         netstat -ano | findstr 9092
         make check-installed
-
-    - name: Dump Kafka log
-      if: failure()
-      shell: pwsh
-      run: Get-Content C:\kafka.log
 
     - uses: actions/upload-artifact@v7
       with:
