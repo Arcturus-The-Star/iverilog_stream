@@ -206,7 +206,7 @@ jobs:
           -replace 'advertised.listeners=.*', 'advertised.listeners=PLAINTEXT://127.0.0.1:9092' |
           Set-Content $cfg
         (Get-Content $cfg) `
-          -replace 'controller.quorum.bootstrap.servers=.*', 'controller.quorum.voters=1@127.0.0.1:9093' |
+          -replace 'controller.quorum.bootstrap.servers=.*', 'controller.quorum.bootstrap.servers=1@127.0.0.1:9093' |
           Set-Content $cfg
 
         $bytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
@@ -217,8 +217,7 @@ jobs:
           Set-Content $cfg
         New-Item -ItemType Directory -Force C:\kafka\kraft-logs
 
-        Get-Content C:\kafka\bin\windows\kafka-server-start.bat
-        Get-Content C:\kafka\bin\windows\kafka-run-class.bat | Select-Object -First 60
+        Get-ChildItem C:\kafka -Recurse -Filter "*.jar" | Select-Object -First 10
 
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
         # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
