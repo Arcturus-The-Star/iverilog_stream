@@ -189,7 +189,6 @@ jobs:
     - name: Start Kafka
       shell: pwsh
       run: |
-        java -version
         Invoke-WebRequest -Uri "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz" -OutFile "kafka.tgz"
         tar -xzf "kafka.tgz"
         Move-Item kafka_2.13-4.3.0 C:\kafka
@@ -210,24 +209,21 @@ jobs:
                 Select-Object -Last 1
         $uuid = $uuid.Trim()
         
-        Get-Content $cfg
+        (Get-Content $cfg) `
+          -replace 'log.dirs=.*', 'log.dirs=C:/kafka/kraft-logs' |
+          Set-Content $cfg
+        New-Item -ItemType Directory -Force C:\kafka\kraft-logs
 
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
 
-        $proc = Start-Process `
-          -PassThru `
-          -FilePath "cmd.exe" `
-          -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+        # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+        cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
 
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
           $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
           Test-NetConnection 127.0.0.1 -Port 9092
           if ($LASTEXITCODE -eq 0) { break }
-          if ($proc.HasExited) {
-            Write-Host "Kafka exited with code $($proc.ExitCode)"
-            exit 1
-          }
           Start-Sleep -Seconds 3
         }
 
