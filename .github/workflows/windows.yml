@@ -1,0 +1,136 @@
+name: windows
+
+on:
+  # Every push onto the main branch triggers a retest.
+  push:
+    branches:
+      - master
+      - testing
+  # All pull_requests trigger a retest.
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+
+  win:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        msystem: [MINGW64, UCRT64, CLANG64]
+        # libvvp: [false, true]
+        # suffix: [false, true]
+        include:
+          - { msystem: MINGW64, env: x86_64 }
+          - { msystem: UCRT64,  env: ucrt-x86_64 }
+          - { msystem: CLANG64, env: clang-x86_64 }
+    name: 🟪 ${{ matrix.msystem }}${{ matrix.libvvp && ' +libvvp' || '' }}${{ matrix.suffix && ' +suffix' || '' }}
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      MINGW_ARCH: ${{ matrix.msystem }}
+    steps:
+
+    - run: git config --global core.autocrlf input
+      shell: bash
+
+    - uses: actions/checkout@v6
+
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.msystem }}
+        update: true
+        install: >
+          git
+          base-devel
+          python-pip
+          mingw-w64-${{ matrix.env }}-perl
+          mingw-w64-${{ matrix.env }}-librdkafka
+
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '21'
+
+    - name: Start Kafka
+      shell: pwsh
+      run: |
+        Invoke-WebRequest -Uri "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz" -OutFile "kafka.tgz"
+        tar -xzf "kafka.tgz"
+        Move-Item kafka_2.13-4.3.0 C:\kafka
+
+        $cfg = "C:\kafka\config\kraft\server.properties"
+        if (-not (Test-Path $cfg)) {
+          $cfg = Get-ChildItem C:\kafka\config -Recurse -Filter "server.properties" |
+                 Select-Object -First 1 -ExpandProperty FullName
+        }
+
+        # Force IPv4 binding
+        (Get-Content $cfg) `
+          -replace 'listeners=.*', 'listeners=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093' `
+          -replace 'advertised.listeners=.*', 'advertised.listeners=PLAINTEXT://127.0.0.1:9092' |
+          Set-Content $cfg
+        (Get-Content $cfg) `
+          -replace 'controller.quorum.bootstrap.servers=.*', 'controller.quorum.bootstrap.servers=1@127.0.0.1:9093' |
+          Set-Content $cfg
+
+        $bytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
+        $uuid = [Convert]::ToBase64String($bytes).TrimEnd('=') -replace '\+','-' -replace '/','_'
+        
+        (Get-Content $cfg) `
+          -replace 'log.dirs=.*', 'log.dirs=C:/kafka/kraft-logs' |
+          Set-Content $cfg
+        New-Item -ItemType Directory -Force C:\kafka\kraft-logs
+
+        Get-ChildItem C:\kafka -Recurse -Filter "*.jar" | Select-Object -First 10
+
+        cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
+        # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+        # $brokerJob = Start-Job -ScriptBlock {
+        #   cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$using:cfg`" 2>&1"
+        # } 
+        # Start-Sleep -Seconds 10
+        # Receive-Job $brokerJob
+        cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+
+        cmd /c "C:\kafka\bin\windows\kafka-server-start.bat --version"
+        $deadline = (Get-Date).AddSeconds(120)
+        while ((Get-Date) -lt $deadline) {
+          $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
+          if ($LASTEXITCODE -eq 0) { break }
+          Start-Sleep -Seconds 3
+        }
+
+        cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
+
+    - name: Build and check
+      run: |
+        cd msys2
+        CONFIG_OPTS=""
+        if [ ${{ matrix.msystem }} != "CLANG64" ] ; then
+            CONFIG_OPTS="$CONFIG_OPTS --enable-libveriuser"
+        fi
+        if [ "${{ matrix.libvvp }}" = "true" ] ; then
+            CONFIG_OPTS="$CONFIG_OPTS --enable-libvvp"
+        fi
+        if [ "${{ matrix.suffix }}" = "true" ]; then
+            CONFIG_OPTS="$CONFIG_OPTS --enable-suffix"
+        fi
+        export IVL_CONFIG_OPTIONS="$CONFIG_OPTS"
+        makepkg-mingw --noconfirm --noprogressbar -sCLf
+
+    - name: Install
+      run: pacman -U --noconfirm msys2/*.zst
+
+    - name: Test
+      env:
+        KAFKA_BOOTSTRAP_SERVERS: 127.0.0.1:9092
+      run: |
+        netstat -ano | findstr 9092
+        make check-installed
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: 🟪 ${{ matrix.msystem }}${{ matrix.libvvp && ' +libvvp' || '' }}
+        path: msys2/*.zst
