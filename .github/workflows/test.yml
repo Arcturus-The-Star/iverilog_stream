@@ -216,15 +216,18 @@ jobs:
 
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
 
-        Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
-        Get-ChildItem C:\kafka\libs | Select-Object Name -First 20
-        Get-ChildItem C:\kafka\core -ErrorAction SilentlyContinue
+        # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+        Start-Process -NoNewWindow cmd `
+          -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`" > C:\kafka\broker.log 2>&1" `
+          -PassThru
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
           $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
           if ($LASTEXITCODE -eq 0) { break }
           Start-Sleep -Seconds 3
         }
+        echo "broker log:\n"
+        Get-Content C:\kafka\broker.log -Tail 30
 
         cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
 
