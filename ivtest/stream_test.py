@@ -58,12 +58,7 @@ def stream_listen(options: dict, ready_event: threading.Event):
         assigned_event.set()
 
     consumer = confluent_kafka.Consumer(config)
-    consumer = confluent_kafka.Consumer(config)
 
-    print("bootstrap.servers =", config["bootstrap.servers"])
-
-    md = consumer.list_topics(timeout=10)
-    print(md.brokers)
     consumer.subscribe(['iv_data_stream'], on_assign=on_assign)
     while not assigned_event.is_set():
         consumer.poll(0.1)
