@@ -236,6 +236,8 @@ jobs:
         }
 
         cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
+        echo "=== Final config ==="
+        Get-Content $cfg
 
     - name: Build and check
       run: |
