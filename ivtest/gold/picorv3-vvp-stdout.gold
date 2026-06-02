@@ -1,3 +1,4 @@
+Stream info: started producer producing to localhost:9092
 ifetch 0x00000000: 0x3fc00093
 ifetch 0x00000004: 0x0000a023
 ifetch 0x00000008: 0x0000a103
@@ -270,4 +271,4 @@ ifetch 0x0000000c: 0x00110113
 read   0x000003fc: 0x0000002c
 ifetch 0x00000010: 0x0020a023
 ifetch 0x00000014: 0xff5ff06f
-ivltests/picorv3.v:25: $finish called at 11000000 (1ps)
+ivltests/picorv3.v:23: $finish called at 11000000 (1ps)
