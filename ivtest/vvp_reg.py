@@ -105,7 +105,6 @@ def process_test(item: list, cfg: dict) -> list:
         'vvp_args'          : it_dict.get('vvp-args', [ ]),
         'vvp_args_extended' : it_dict.get('vvp-args-extended', [ ]),
         'stream'            : it_dict.get('stream', [ ]),
-        'server'            : it_dict.get('server', [ ])
     }
     if it_opts['stream']:
         it_opts['vvp_args_extended'].append("-stream")
