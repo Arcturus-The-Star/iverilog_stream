@@ -218,6 +218,9 @@ jobs:
 
         # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
         cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+        echo "Exit code: $LASTEXITCODE"
+        Get-Content C:\kafka\bin\windows\kafka-server-start.bat | Select-String wmic
+        Get-ChildItem C:\kafka\bin\windows\*.bat | Select-String wmic
 
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
