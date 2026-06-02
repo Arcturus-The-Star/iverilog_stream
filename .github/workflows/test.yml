@@ -211,24 +211,23 @@ jobs:
 
         $bytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
         $uuid = [Convert]::ToBase64String($bytes).TrimEnd('=') -replace '\+','-' -replace '/','_'
-        echo "UUID: '$uuid'"
         
         (Get-Content $cfg) `
           -replace 'log.dirs=.*', 'log.dirs=C:/kafka/kraft-logs' |
           Set-Content $cfg
         New-Item -ItemType Directory -Force C:\kafka\kraft-logs
 
+        Get-Content C:\kafka\bin\windows\kafka-server-start.bat
+        Get-Content C:\kafka\bin\windows\kafka-run-class.bat | Select-Object -First 60
+
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
-        echo "Java version:"
-        java -version
-        echo "JAVA_HOME: $env:JAVA_HOME"
-        echo "Java on PATH: $(Get-Command java | Select-Object -ExpandProperty Source)"
         # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
-        $brokerJob = Start-Job -ScriptBlock {
-          cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$using:cfg`" 2>&1"
-        } 
-        Start-Sleep -Seconds 10
-        Receive-Job $brokerJob
+        # $brokerJob = Start-Job -ScriptBlock {
+        #   cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$using:cfg`" 2>&1"
+        # } 
+        # Start-Sleep -Seconds 10
+        # Receive-Job $brokerJob
+        cmd /c "C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
 
         cmd /c "C:\kafka\bin\windows\kafka-server-start.bat --version"
         $deadline = (Get-Date).AddSeconds(120)
@@ -239,8 +238,6 @@ jobs:
         }
 
         cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
-        echo "=== Final config ==="
-        Get-Content $cfg
 
     - name: Build and check
       run: |
