@@ -217,17 +217,32 @@ jobs:
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
 
         # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
-        Start-Process -NoNewWindow cmd `
-          -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`" > C:\kafka\broker.log 2>&1" `
+        $brokerProc = Start-Process -NoNewWindow `
+          -FilePath "C:\kafka\bin\windows\kafka-server-start.bat" `
+          -ArgumentList "`"$cfg`"" `
+          -RedirectStandardOutput "C:\kafka\broker-stdout.log" `
+          -RedirectStandardError  "C:\kafka\broker-stderr.log" `
           -PassThru
+
+        echo "Kafka PID: $($brokerProc.Id)"
+        Start-Sleep -Seconds 5
+        if ($brokerProc.HasExited) {
+          echo "Broker exited immediately with code $($brokerProc.ExitCode)"
+          Get-Content C:\kafka\broker-stdout.log
+          Get-Content C:\kafka\broker-stderr.log
+          exit 1
+        }
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
           $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
           if ($LASTEXITCODE -eq 0) { break }
           Start-Sleep -Seconds 3
         }
-        echo "broker log:\n"
-        Get-Content C:\kafka\broker.log -Tail 30
+
+        echo "=== broker stdout ==="
+        Get-Content C:\kafka\broker-stdout.log -Tail 40
+        echo "=== broker stderr ==="
+        Get-Content C:\kafka\broker-stderr.log -Tail 40
 
         cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
 
