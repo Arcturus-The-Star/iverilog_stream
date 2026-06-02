@@ -189,6 +189,7 @@ jobs:
     - name: Start Kafka
       shell: pwsh
       run: |
+        java -version
         Invoke-WebRequest -Uri "https://dlcdn.apache.org/kafka/4.3.0/kafka_2.13-4.3.0.tgz" -OutFile "kafka.tgz"
         tar -xzf "kafka.tgz"
         Move-Item kafka_2.13-4.3.0 C:\kafka
@@ -208,23 +209,30 @@ jobs:
         $uuid = cmd /c "C:\kafka\bin\windows\kafka-storage.bat random-uuid" 2>$null |
                 Select-Object -Last 1
         $uuid = $uuid.Trim()
+        
+        Get-Content $cfg
 
         cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
 
-        Start-Process `
+        $proc = Start-Process `
+          -PassThru `
           -FilePath "cmd.exe" `
-          -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`" > C:\kafka.log 2>&1"
+          -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
+
         $deadline = (Get-Date).AddSeconds(120)
         while ((Get-Date) -lt $deadline) {
           $result = cmd /c "C:\kafka\bin\windows\kafka-topics.bat --list --bootstrap-server 127.0.0.1:9092" 2>$null
           Test-NetConnection 127.0.0.1 -Port 9092
           if ($LASTEXITCODE -eq 0) { break }
+          if ($proc.HasExited) {
+            Write-Host "Kafka exited with code $($proc.ExitCode)"
+            exit 1
+          }
           Start-Sleep -Seconds 3
         }
 
         cmd /c "C:\kafka\bin\windows\kafka-topics.bat --create --topic iv_data_stream --bootstrap-server 127.0.0.1:9092 --partitions 1 --replication-factor 1"
 
-        Get-Content C:\kafka.log
     - name: Build and check
       run: |
         cd msys2
