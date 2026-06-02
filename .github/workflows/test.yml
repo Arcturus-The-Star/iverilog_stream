@@ -215,17 +215,18 @@ jobs:
           Set-Content $cfg
         New-Item -ItemType Directory -Force C:\kafka\kraft-logs
 
-        cmd /c "C:\kafka\bin\windows\kafka-storage.bat format --standalone -t $uuid -c `"$cfg`""
+        cmd /c "C:\kafka\bin\windows\kafka-storage.bat format -t $uuid -c `"$cfg`""
         echo "Java version:"
         java -version
         echo "JAVA_HOME: $env:JAVA_HOME"
         echo "Java on PATH: $(Get-Command java | Select-Object -ExpandProperty Source)"
         # Start-Process -NoNewWindow cmd -ArgumentList "/c C:\kafka\bin\windows\kafka-server-start.bat `"$cfg`""
-        $brokerProc = Start-Process -NoNewWindow `
+        $brokerProc = Start-Process `
           -FilePath "C:\kafka\bin\windows\kafka-server-start.bat" `
           -ArgumentList "`"$cfg`"" `
           -RedirectStandardOutput "C:\kafka\broker-stdout.log" `
           -RedirectStandardError  "C:\kafka\broker-stderr.log" `
+          -WindowStyle Hidden `
           -PassThru
 
         echo "Kafka PID: $($brokerProc.Id)"
