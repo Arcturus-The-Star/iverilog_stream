@@ -206,9 +206,9 @@ jobs:
           -replace 'advertised.listeners=.*', 'advertised.listeners=PLAINTEXT://127.0.0.1:9092' |
           Set-Content $cfg
 
-        $uuid = cmd /c "C:\kafka\bin\windows\kafka-storage.bat random-uuid" 2>$null |
-                Select-Object -Last 1
-        $uuid = $uuid.Trim()
+        $bytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
+        $uuid = [Convert]::ToBase64String($bytes).TrimEnd('=') -replace '\+','-' -replace '/','_'
+        echo "UUID: '$uuid'"
         
         (Get-Content $cfg) `
           -replace 'log.dirs=.*', 'log.dirs=C:/kafka/kraft-logs' |
