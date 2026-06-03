@@ -1,0 +1,46 @@
+Stream info: started producer producing to localhost:9092
+[ACW_tb] Round           1 of           4
+[ACW_tb] 	tb_HW_r_base_addr = 00000000
+[ACW_tb] 	tb_HW_w_base_addr = 00000000
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] Round           2 of           4
+[ACW_tb] 	tb_HW_r_base_addr = 00000000
+[ACW_tb] 	tb_HW_w_base_addr = 00000000
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] Round           3 of           4
+[ACW_tb] 	tb_HW_r_base_addr = 00000000
+[ACW_tb] 	tb_HW_w_base_addr = 00000000
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] Round           4 of           4
+[ACW_tb] 	tb_HW_r_base_addr = 00000000
+[ACW_tb] 	tb_HW_w_base_addr = 00000000
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into illegal read trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+[ACW_tb] 	into legal write trans
+ivltests/AKER.sv:525: $finish called at 5270000 (1ps)
