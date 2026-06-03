@@ -64,19 +64,19 @@ def stream_listen(options: dict, ready_event: threading.Event):
         consumer.poll(0.1)
     consumer.poll(0.1)
     ready_event.set()
-    msg_count = 0
     with open(os.path.join("log", f"{options['key']}-vvp-stream.log"), "wb") as f:
         while True:
             msg = consumer.poll(0.1)
             if msg is None:
-                if stop_event.is_set():
-                    break
+                pass
             elif msg.error():
                 print(f"ERROR: {msg.error()}")
             else:
                 value = msg.value()
-                f.write(value if value else b'')
-                msg_count += 1
+                if value.decode("utf-8") == "\u0004":
+                    break
+                else:
+                    f.write(value if value else b'')
     consumer.close()
 
 if __name__ == "__main__":

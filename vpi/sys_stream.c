@@ -191,7 +191,7 @@ static PLI_INT32 stream_finish_cb(p_cb_data cause) {
 		strbuf_append_linef(&message, "#%" PLI_UINT64_FMT "\n", dumpvars_time);
 		send_message(message.data);
 	}
-
+	send_message("\x04");
 	// Stop the producer
 	rd_kafka_flush(producer, 10 * 1000);
 	rd_kafka_destroy(producer);
