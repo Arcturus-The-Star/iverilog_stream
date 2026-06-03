@@ -1,0 +1,7 @@
+{
+	"type": "normal",
+	"gold": "AKER",
+	"source": "AKER.sv",
+	"stream": true,
+	"iverilog-args": ["-g2012"]
+}
