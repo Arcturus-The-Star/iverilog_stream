@@ -314,7 +314,6 @@ def do_run_normal(options: dict, cfg: dict, expected_fail: bool,
     # set up streaming
     stream = None
     if options['stream']:
-        stream_test.stop_event.clear()
         ready_event = threading.Event()
         stream = threading.Thread(target=stream_test.stream_listen, args=(options,ready_event))
         stream.start()
@@ -324,7 +323,6 @@ def do_run_normal(options: dict, cfg: dict, expected_fail: bool,
     vvp_res = run_cmd(vvp_cmd)
     log_results(it_key, "vvp", vvp_res)
     if options['stream'] and stream is not None:
-        stream_test.stop_event.set()
         stream.join()
 
     vvp_rtn = build_vvp_return(expected_fail, vvp_res)
